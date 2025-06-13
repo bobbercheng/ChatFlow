@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  email        String   @id @db.VarChar(255)
+  hashedPassword String @map("hashed_password") @db.VarChar(255)
+  displayName  String   @map("display_name") @db.VarChar(255)
+  avatarUrl    String?  @map("avatar_url") @db.VarChar(500)
+  isOnline     Boolean  @default(false) @map("is_online")
+  lastSeen     DateTime @default(now()) @map("last_seen")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  createdConversations Conversation[] @relation("ConversationCreator")
+  messages            Message[]
+  participations      ConversationParticipant[]
+  messageStatuses     MessageStatus[]
+
+  @@map("users")
+}
+
+model Conversation {
+  id        String            @id @default(uuid()) @db.Uuid
+  createdBy String            @map("created_by") @db.VarChar(255)
+  type      ConversationType  @default(DIRECT)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  creator      User                      @relation("ConversationCreator", fields: [createdBy], references: [email])
+  messages     Message[]
+  participants ConversationParticipant[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String      @id @default(uuid()) @db.Uuid
+  conversationId String      @map("conversation_id") @db.Uuid
+  senderId       String      @map("sender_id") @db.VarChar(255)
+  messageType    MessageType @default(TEXT) @map("message_type")
+  content        String      @db.Text
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  conversation    Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender          User            @relation(fields: [senderId], references: [email])
+  statusRecords   MessageStatus[]
+
+  @@map("messages")
+}
+
+model ConversationParticipant {
+  conversationId String                     @map("conversation_id") @db.Uuid
+  userId         String                     @map("user_id") @db.VarChar(255)
+  joinedAt       DateTime                   @default(now()) @map("joined_at")
+  role           ConversationParticipantRole @default(MEMBER)
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [email])
+
+  @@id([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+}
+
+enum ConversationParticipantRole {
+  ADMIN
+  MEMBER
+}
+
+model MessageStatus {
+  messageId   String                @map("message_id") @db.Uuid
+  userId      String                @map("user_id") @db.VarChar(255)
+  status      MessageDeliveryStatus @default(SENT)
+  sentAt      DateTime              @default(now()) @map("sent_at")
+  deliveredAt DateTime?             @map("delivered_at")
+  readAt      DateTime?             @map("read_at")
+  
+  // Relations
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [email])
+  
+  @@id([messageId, userId])
+  @@index([messageId])
+  @@index([userId, status])
+  @@map("message_status")
+}
+
+enum MessageDeliveryStatus {
+  SENT      // Message created and stored in database
+  DELIVERED // Message delivered to recipient's device/WebSocket  
+  READ      // Message read by recipient
+  FAILED    // Message failed to deliver
+} 

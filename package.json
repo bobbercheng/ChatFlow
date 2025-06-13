@@ -1,0 +1,29 @@
+{
+  "name": "chatflow",
+  "version": "1.0.0",
+  "description": "A minimal but clean WhatsApp-style messaging app",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "start": "npm run start --workspace=backend",
+    "dev": "npm run dev --workspace=backend",
+    "test": "npm run test --workspace=backend",
+    "build": "npm run build --workspace=backend",
+    "db:migrate": "npm run db:migrate --workspace=backend",
+    "db:seed": "npm run db:seed --workspace=backend",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+} 
