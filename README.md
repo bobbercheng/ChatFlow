@@ -299,6 +299,7 @@ A simple frontend demo is available at `frontend/` directory. It provides:
 
 ### TODO
 - Add more error handling and limit message size.
+- Message encryption from server to peers.
 - Enable message search with OpenSearch with permission management.
 - Add db task to do partitioning on table message/message_status by date.
 - Add redis cache for hot query e.g. recent messages.

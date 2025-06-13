@@ -82,11 +82,21 @@ erDiagram
         timestamp joined_at
         enum role
     }
+    MESSAGE_STATUS {
+        uuid id PK
+        uuid message_id FK
+        varchar user_id FK
+        enum status
+        timestamp occurred_at
+        timestamp created_at
+    }
 
     USERS ||--o{ MESSAGES                  : "sends"
     CONVERSATIONS ||--o{ MESSAGES           : "contains"
     USERS ||--o{ CONVERSATION_PARTICIPANTS : "participates in"
     CONVERSATIONS ||--o{ CONVERSATION_PARTICIPANTS : "has participants"
+    MESSAGES ||--o{ MESSAGE_STATUS         : "has status"
+    USERS ||--o{ MESSAGE_STATUS            : "receives"
 ```
 ### Backend
 API Endpoints:
