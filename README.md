@@ -16,7 +16,7 @@ Build a minimal but clean WhatsApp-style messaging app that proves code quality,
 
 ### Deliverables checklist
 
--   **Working API** with the endpoints above
+-   **Working API** with the endpoints above, refer to [backend/src/rest/v1/openapi.yaml](backend/src/rest/v1/openapi.yaml)
     
 -   **Minimal UI/CLI** just to demo flows (no styling effort)
     
@@ -24,9 +24,9 @@ Build a minimal but clean WhatsApp-style messaging app that proves code quality,
     
 -   **README** ⇒ setup, how to run tests, cURL/WebSocket demo
     
--   **Architecture doc** ⇒ diagram, tech choices, how to scale to 10k concurrent users
+-   **Architecture doc** ⇒ diagram, tech choices, how to scale to 10k concurrent users, refer to [architecture.md](architecture.md)
     
--   **Trade-offs sheet** ⇒ key decisions + what you’d improve with more time
+-   **Trade-offs sheet** ⇒ key decisions + what you'd improve with more time, refer to [tradeoffs.md](tradeoffs.md)
 
 ## How To Run
 
@@ -258,6 +258,10 @@ ws.send(JSON.stringify({
 3. **READ**: Set when recipient views the message (via API or WebSocket event)
 4. **FAILED**: Set if message delivery fails (network issues, etc.)
 
+### Run backend with docker
+Refer to [DOCKER_SETUP.md](DOCKER_SETUP.md)
+
+
 ### Frontend Demo
 
 A simple frontend demo is available at `frontend/` directory. It provides:
@@ -292,3 +296,13 @@ A simple frontend demo is available at `frontend/` directory. It provides:
 - `npm run db:migrate` - Run database migrations
 - `npm run docker:up` - Start Docker services
 - `npm run docker:down` - Stop Docker services
+
+### TODO
+- Add more error handling and limit message size.
+- Enable message search with OpenSearch with permission management.
+- Add db task to do partitioning on table message/message_status by date.
+- Add redis cache for hot query e.g. recent messages.
+- Load balance by conversation id.
+- Add CICD for deployment to Kubernetes cloud.
+- Support image, binary files with object storage server.
+- Add Prometheus metric for performance trace.  

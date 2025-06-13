@@ -21,6 +21,7 @@ flowchart TB
     Pods --> PG
     
     Pods -.-> OS["OpenSearch"]
+    Pods -.-> OS["Object storage service/AWS S3"]
 
 ```
 ### System bottlenecks & Solutions
@@ -116,7 +117,7 @@ For frontend, we will use LWC(Lightning Web Components) so we can reuse existed 
 
 ### Code structure
 We use monorepo structure with shared packages.
-
+```
 chatflow/
 ├── .github/                     # TODO: GitHub Actions CI/CD
 │   └── workflows/
@@ -163,7 +164,7 @@ chatflow/
 │   ├── build.sh
 │   ├── deploy.sh
 │   └── migrate.sh
-├── shared/      # TODO
+├── shared/      # shared code
 │   ├── src/
 │   ├── package.json
 │   └── tsconfig.json
@@ -173,7 +174,7 @@ chatflow/
 │   ├── src/
 │   ├── package.json
 │   └── tsconfig.json
-└── frontend/   # TODO
+└── frontend/   # simple frontend
 │   ├── src/
 │   ├── package.json
 │   └── tsconfig.json
@@ -184,3 +185,4 @@ chatflow/
 ├── .env.example               # Environment variables template
 └── README.md
 
+```
