@@ -18,11 +18,11 @@ Build a minimal but clean WhatsApp-style messaging app that proves code quality,
 
 -   **Working API** with the endpoints above, refer to [backend/src/rest/v1/openapi.yaml](backend/src/rest/v1/openapi.yaml)
     
--   **Minimal UI/CLI** just to demo flows (no styling effort)
+-   **Minimal UI/CLI** just to demo flows (no styling effort), refer to [Frontend Demo](https://github.com/bobbercheng/ChatFlow/tree/main?tab=readme-ov-file#frontend-demo) and [frontend/images/frontend.png](frontend/images/frontend.png)
     
--   **Docker‐compose or simple script** to spin up DB + app locally
+-   **Docker‐compose or simple script** to spin up DB + app locally, refer to [DOCKER_SETUP.md](DOCKER_SETUP.md)
     
--   **README** ⇒ setup, how to run tests, cURL/WebSocket demo
+-   **README** ⇒ setup, how to run tests, cURL/WebSocket demo. refer to [Example API Usage](https://github.com/bobbercheng/ChatFlow/tree/main?tab=readme-ov-file#example-api-usage)
     
 -   **Architecture doc** ⇒ diagram, tech choices, how to scale to 10k concurrent users, refer to [architecture.md](architecture.md)
     
