@@ -136,22 +136,12 @@ chatflow/
 │       └── deploy-production.yml
 ├── .gitlab-ci.yml              # TODO: GitLab CI/CD (alternative)
 ├── docker/                     # Docker configurations
-│   ├── backend/
-│   │   ├── Dockerfile
-│   │   ├── Dockerfile.dev
-│   │   └── .dockerignore
-│   ├── frontend/
-│   │   ├── Dockerfile
-│   │   ├── Dockerfile.dev
-│   │   └── .dockerignore
-│   ├── nginx/
+│   ├── nginx/ # TODO:
 │   │   ├── Dockerfile
 │   │   ├── nginx.conf
 │   │   └── nginx.dev.conf
 │   └── postgres/
-│       ├── Dockerfile
-│       ├── init.sql
-│       └── migrations/
+│       └── Dockerfile
 ├── k8s/                        # TODO: Kubernetes manifests
 │   ├── base/
 │   │   ├── namespace.yaml
@@ -169,7 +159,7 @@ chatflow/
 │       ├── kustomization.yaml
 │       ├── ingress.yaml
 │       └── hpa.yaml
-├── scripts/                    # Utility scripts
+├── scripts/                    # TODO: Utility scripts
 │   ├── setup.sh
 │   ├── build.sh
 │   ├── deploy.sh
@@ -182,6 +172,7 @@ chatflow/
 │   └── migrations/
 ├── backend/
 │   ├── src/
+│   ├── Dockerfile
 │   ├── package.json
 │   └── tsconfig.json
 └── frontend/   # simple frontend
