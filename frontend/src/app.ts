@@ -352,6 +352,12 @@ class ChatFlowApp {
     }
 
     private addMessage(message: Message) {
+        // If no conversation is set, automatically join the conversation of the first received message
+        if (!this.conversationId && message.conversationId) {
+            this.conversationId = message.conversationId;
+            this.updateConversationDisplay();
+        }
+        
         if (message.conversationId !== this.conversationId) {
             return;
         }
@@ -364,6 +370,20 @@ class ChatFlowApp {
 
         this.messages = [messageDisplay, ...this.messages];
         this.updateMessagesDisplay();
+    }
+
+    private updateConversationDisplay() {
+        // Update the conversation info display
+        const conversationInfo = document.querySelector('.conversation-info h3');
+        if (conversationInfo) {
+            conversationInfo.textContent = `Conversation: ${this.conversationId || 'None'}`;
+        }
+        
+        // Update the conversation ID input field
+        const conversationInput = document.getElementById('conversationIdInput') as HTMLInputElement;
+        if (conversationInput) {
+            conversationInput.value = this.conversationId;
+        }
     }
 
     private getMessageCssClass(message: Message): string {
