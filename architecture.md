@@ -47,7 +47,7 @@ We use REST API for auth, user and conversation management, use websocket for re
 
 
 ### Database and Data Schema
-We use Postgres here as it supports partitioning and be well supported by public cloud. We can use other DB that support partitioning as well. We don't use NOSQL DB here
+We use Postgres here as it supports partitioning and be well supported by public cloud. We can use other DB that support partitioning as well. We don't use NOSQL DB here as we cannot easily archive all operation with key/value or document db. However, we use Redis key/value as cache for frequent query.
 
 ```mermaid
 erDiagram
