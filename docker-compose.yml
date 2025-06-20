@@ -1,0 +1,79 @@
+services:
+  # Google Cloud Firestore Emulator
+  firestore:
+    image: google/cloud-sdk:slim
+    container_name: chatflow-firestore
+    platform: linux/amd64
+    command: >
+      sh -c "
+      apt-get update &&
+      apt-get install -y default-jre-headless netcat-openbsd google-cloud-cli-firestore-emulator &&
+      gcloud config set project chatflow-dev &&
+      gcloud beta emulators firestore start --host-port=0.0.0.0:8080
+      "
+    ports:
+      - "8080:8080"
+    environment:
+      - FIRESTORE_EMULATOR_HOST=0.0.0.0:8080
+      - GOOGLE_CLOUD_PROJECT=chatflow-dev
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 120s
+
+  # Google Cloud Pub/Sub Emulator
+  pubsub:
+    image: google/cloud-sdk:slim
+    container_name: chatflow-pubsub
+    platform: linux/amd64
+    command: >
+      sh -c "
+      apt-get update &&
+      apt-get install -y default-jre-headless netcat-openbsd google-cloud-cli-pubsub-emulator &&
+      gcloud config set project chatflow-dev &&
+      gcloud beta emulators pubsub start --host-port=0.0.0.0:8085
+      "
+    ports:
+      - "8085:8085"
+    environment:
+      - PUBSUB_EMULATOR_HOST=0.0.0.0:8085
+      - GOOGLE_CLOUD_PROJECT=chatflow-dev
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8085"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 120s
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: chatflow-backend
+    env_file:
+      - env.docker
+    ports:
+      - "3002:3002"
+    depends_on:
+      firestore:
+        condition: service_healthy
+      pubsub:
+        condition: service_healthy
+    environment:
+      - FIRESTORE_EMULATOR_HOST=firestore:8080
+      - PUBSUB_EMULATOR_HOST=pubsub:8085
+      - GOOGLE_CLOUD_PROJECT=chatflow-dev
+      - USE_FIRESTORE=true
+      - USE_PUBSUB=true
+      - NODE_ENV=development
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 150s
+    restart: unless-stopped
+
+volumes: {} 
