@@ -1,0 +1,20 @@
+# Copy this file to terraform.tfvars and update with your values
+
+# Required variables
+project_id = "your-gcp-project-id"
+jwt_secret = "your-super-secret-jwt-key-change-this-in-production"
+
+# Optional variables (defaults shown)
+region            = "us-central1"
+firestore_location = "us-central"
+environment       = "prod"
+
+# Cloud Run configuration
+min_instances = 0
+max_instances = 10
+cpu_limit     = "1000m"
+memory_limit  = "512Mi"
+
+# Application configuration
+jwt_expires_in = "7d"
+cors_origin    = "https://your-frontend-domain.com" 

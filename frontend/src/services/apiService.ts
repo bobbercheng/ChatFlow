@@ -1,6 +1,7 @@
 import { ApiResponse, LoginRequest, LoginResponse, Message, CreateMessageRequest } from '../types/index.js';
+import { config } from '../config/environment.js';
 
-const API_BASE_URL = 'http://localhost:3002/v1';
+const API_BASE_URL = config.API_BASE_URL;
 
 class ApiService {
     private token: string | null = null;
@@ -80,6 +81,11 @@ class ApiService {
                 messageType: data.messageType || 'TEXT',
             }),
         });
+    }
+
+    // Get current API base URL for debugging
+    getApiBaseUrl(): string {
+        return API_BASE_URL;
     }
 }
 

@@ -1,6 +1,7 @@
 import { apiService } from './services/apiService.js';
 import { websocketService } from './services/websocketService.js';
 import { User, Message, WebSocketEvent } from './types/index.js';
+import { config } from './config/environment.js';
 
 interface MessageDisplay extends Message {
     cssClass: string;
@@ -18,6 +19,10 @@ class ChatFlowApp {
     private eventListenersAttached = false;
 
     constructor() {
+        console.log('🚀 ChatFlow Frontend Starting...');
+        console.log('📡 API Endpoint:', config.API_BASE_URL);
+        console.log('🔌 WebSocket Endpoint:', config.WS_BASE_URL);
+        console.log('📱 App Version:', config.VERSION);
         this.initializeApp();
     }
 
@@ -139,7 +144,7 @@ class ChatFlowApp {
         app.innerHTML = `
             <div class="chat-app">
                 <div class="header">
-                    <h1>ChatFlow</h1>
+                    <h1>${config.APP_NAME}</h1>
                 </div>
                 <div class="login-container">
                     <div class="login-form">
@@ -169,7 +174,7 @@ class ChatFlowApp {
         app.innerHTML = `
             <div class="chat-app">
                 <div class="header">
-                    <h1>ChatFlow</h1>
+                    <h1>${config.APP_NAME}</h1>
                     <div class="user-info">
                         <span>Welcome, ${this.currentUser?.displayName || 'User'}</span>
                         <button id="logoutBtn" class="logout-btn">Logout</button>

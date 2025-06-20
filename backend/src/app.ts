@@ -14,10 +14,30 @@ import { healthService } from './services/health.service';
 
 const app = express();
 
+// CORS configuration
+const getAllowedOrigins = () => {
+  const corsOrigin = process.env['CORS_ORIGIN'];
+  
+  // Default development origins
+  const defaultOrigins = ['http://localhost:3001', 'http://localhost:3003'];
+  
+  if (corsOrigin) {
+    if (corsOrigin === '*') {
+      return true; // Allow all origins
+    }
+    
+    // Split comma-separated origins and add defaults for development
+    const configuredOrigins = corsOrigin.split(',').map(origin => origin.trim());
+    return [...defaultOrigins, ...configuredOrigins];
+  }
+  
+  return defaultOrigins;
+};
+
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: ['http://localhost:3001', 'http://localhost:3003'],
+  origin: getAllowedOrigins(),
   credentials: true,
 }));
 
@@ -27,26 +47,54 @@ app.use(express.urlencoded({ extended: true }));
 
 // Load OpenAPI specification
 const openApiPath = path.join(__dirname, 'rest', 'v1', 'openapi.yaml');
-const swaggerDocument = YAML.load(openApiPath);
+const baseSwaggerDocument = YAML.load(openApiPath);
 
-// Swagger UI with Bearer token support
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
-  swaggerOptions: {
-    persistAuthorization: true,
-    securityDefinitions: {
-      bearerAuth: {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
+// Function to get server URL from request
+const getServerUrlFromRequest = (req: express.Request) => {
+  const protocol = req.get('x-forwarded-proto') || req.protocol;
+  const host = req.get('x-forwarded-host') || req.get('host');
+  return `${protocol}://${host}/v1`;
+};
+
+// Dynamic Swagger UI setup with request-based server URL
+app.use('/api-docs', swaggerUi.serve);
+app.get('/api-docs', (req, res, next) => {
+  // Clone the base document to avoid modifying the original
+  const swaggerDocument = JSON.parse(JSON.stringify(baseSwaggerDocument));
+  
+  // Get the current server URL from the request
+  const currentServerUrl = getServerUrlFromRequest(req);
+  
+  // Update the servers array
+  if (swaggerDocument && swaggerDocument.servers) {
+    // Add current server as the first option
+    swaggerDocument.servers.unshift({
+      url: currentServerUrl,
+      description: 'Current Server'
+    });
+  }
+  
+  // Set up Swagger UI with the updated document
+  const swaggerUiHandler = swaggerUi.setup(swaggerDocument, {
+    swaggerOptions: {
+      persistAuthorization: true,
+      securityDefinitions: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
       },
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
     },
-    security: [
-      {
-        bearerAuth: [],
-      },
-    ],
-  },
-}));
+  });
+  
+  swaggerUiHandler(req, res, next);
+});
 
 // Enhanced health check with system status
 app.get('/health', async (_req, res) => {

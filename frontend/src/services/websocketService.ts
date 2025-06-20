@@ -1,6 +1,7 @@
 import { WebSocketEvent } from '../types/index.js';
+import { config } from '../config/environment.js';
 
-const WS_URL = 'ws://localhost:3002/ws';
+const WS_URL = config.WS_BASE_URL;
 
 type MessageHandler = (event: WebSocketEvent) => void;
 
@@ -21,7 +22,7 @@ class WebSocketService {
                 this.ws = new WebSocket(wsUrl);
                 
                 this.ws.onopen = () => {
-                    console.log('WebSocket connected');
+                    console.log('WebSocket connected to:', WS_URL);
                     this.reconnectAttempts = 0;
                     resolve();
                 };
@@ -114,6 +115,11 @@ class WebSocketService {
 
     isConnected(): boolean {
         return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
+    }
+
+    // Get current WebSocket URL for debugging
+    getWebSocketUrl(): string {
+        return WS_URL;
     }
 }
 

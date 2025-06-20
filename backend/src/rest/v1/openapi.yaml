@@ -8,6 +8,8 @@ info:
 servers:
   - url: http://localhost:3002/v1
     description: Development server
+  - url: https://chatflow-backend-3w6u4kmniq-ue.a.run.app/v1
+    description: Production server (Cloud Run)
 
 components:
   securitySchemes:
