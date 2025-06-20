@@ -58,6 +58,40 @@ resource "google_firestore_database" "chatflow_db" {
   depends_on = [google_project_service.required_apis]
 }
 
+# Create Firestore index for conversations query
+# This index supports queries that filter by participantEmails (array-contains) 
+# and order by updatedAt (descending)
+resource "google_firestore_index" "conversations_by_participant_and_date" {
+  project    = var.project_id
+  database   = google_firestore_database.chatflow_db.name
+  collection = "conversations"
+
+  fields {
+    field_path   = "participantEmails"
+    array_config = "CONTAINS"
+  }
+
+  fields {
+    field_path = "updatedAt"
+    order      = "DESCENDING"
+  }
+
+  depends_on = [google_firestore_database.chatflow_db]
+}
+
+# Single-field indexes are automatically created by Firestore
+# No need to explicitly create an index just for createdAt ordering
+# The index below is commented out because it's handled automatically
+
+# resource "google_firestore_index" "conversation_messages_by_date" {
+#   # Single field indexes are automatic in Firestore
+#   # This would cause "Insufficient fields blocks" error
+# }
+
+# Note: Subcollection indexes for messages are automatically handled by Firestore
+# for simple single-field queries (like ordering by createdAt)
+# Complex subcollection indexes may need to be created manually through the console if needed
+
 # Create Pub/Sub topic for chatflow events
 resource "google_pubsub_topic" "chatflow_events" {
   name = "chatflow-events"

@@ -103,7 +103,16 @@ This Terraform configuration creates:
 ### Compute & Storage
 - **Cloud Run service**: Hosts the backend API
 - **Firestore database**: NoSQL database for application data
+- **Firestore indexes**: Optimized indexes for query performance
 - **Artifact Registry**: Stores Docker images
+
+### Firestore Indexes Created
+1. **Conversations by Participant**: `participantEmails` (contains) + `updatedAt` (desc)
+   - Supports listing conversations for a user, ordered by recent activity
+2. **Message Status**: `status` (asc) + `readAt` (desc) for read receipts
+   - Supports querying read/delivery status efficiently
+
+**Note**: Single-field indexes (like `createdAt` ordering for messages) are automatically created by Firestore and don't need explicit definition.
 
 ### Messaging
 - **Pub/Sub topic**: `chatflow-events` for real-time messaging

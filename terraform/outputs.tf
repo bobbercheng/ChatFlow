@@ -38,6 +38,13 @@ output "firestore_database" {
   value       = google_firestore_database.chatflow_db.name
 }
 
+output "firestore_indexes" {
+  description = "The created Firestore indexes"
+  value = {
+    conversations_by_participant = google_firestore_index.conversations_by_participant_and_date.name
+  }
+}
+
 output "pubsub_topic" {
   description = "The Pub/Sub topic name"
   value       = google_pubsub_topic.chatflow_events.name

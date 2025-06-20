@@ -33,6 +33,7 @@
 
 2. **Storage & Database**
    - Firestore native database (default)
+   - Firestore composite indexes for query optimization
    - Artifact Registry repository for Docker images
 
 3. **Messaging**
@@ -206,6 +207,7 @@ deploy_production:
 
 ### Database Scaling
 - Firestore automatically scales
+- Optimized with composite indexes for fast queries
 - No connection pooling needed
 - Global distribution available
 

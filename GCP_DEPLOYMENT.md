@@ -8,6 +8,7 @@ Your deployment will create:
 
 - **Cloud Run**: Serverless container hosting for the backend API
 - **Firestore**: NoSQL database for storing users, conversations, and messages
+- **Firestore Indexes**: Optimized composite indexes for fast query performance
 - **Pub/Sub**: Real-time messaging infrastructure
 - **Artifact Registry**: Private Docker image repository
 - **Service Account**: Minimal permissions for security
@@ -229,6 +230,7 @@ memory_limit = "512Mi"  # Start small, increase if needed
 - **Reads**: $0.06 per 100,000 documents
 - **Writes**: $0.18 per 100,000 documents
 - **Storage**: $0.18/GiB/month
+- **Indexes**: Minimal additional storage cost (~$0.18/GiB/month)
 
 ### Pub/Sub Pricing
 - **Messages**: $40 per TiB of data
