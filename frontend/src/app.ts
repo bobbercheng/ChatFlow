@@ -19,7 +19,7 @@ interface SearchResult {
   relevanceScore: number;
 }
 
-class ChatFlowApp {
+export class ChatFlowApp {
     private isLoggedIn = false;
     private currentUser: User | null = null;
     private conversationId = '';
@@ -242,8 +242,8 @@ class ChatFlowApp {
             // Listen for navigation events from SearchComponent
             window.addEventListener('navigateToConversation', (event: Event) => {
                 const customEvent = event as CustomEvent;
-                const { conversationId } = customEvent.detail;
-                this.navigateToConversation(conversationId);
+                const { conversationId, messageId } = customEvent.detail;
+                this.navigateToConversation(conversationId, messageId);
             });
         } catch (error) {
             console.error('Failed to initialize SearchComponent:', error);
@@ -420,16 +420,10 @@ class ChatFlowApp {
         };
 
         this.messages = [messageDisplay, ...this.messages];
-        this.updateMessagesDisplay();
+        this.updateMessagesDisplay('top'); // Scroll to top for new messages
     }
 
     private updateConversationDisplay() {
-        // Update the conversation info display
-        const conversationInfo = document.querySelector('.conversation-info h3');
-        if (conversationInfo) {
-            conversationInfo.textContent = `Conversation: ${this.conversationId || 'None'}`;
-        }
-        
         // Update the conversation ID input field
         const conversationInput = document.getElementById('conversationIdInput') as HTMLInputElement;
         if (conversationInput) {
@@ -467,12 +461,12 @@ class ChatFlowApp {
         }
     }
 
-    private updateMessagesDisplay() {
+    private updateMessagesDisplay(scrollBehavior: 'top' | 'bottom' | 'none' = 'top') {
         const messagesList = document.getElementById('messagesList');
         if (!messagesList) return;
 
         messagesList.innerHTML = this.messages.map(message => `
-            <div class="${message.cssClass}">
+            <div class="${message.cssClass}" data-message-id="${message.id}">
                 <div class="message-header">
                     <span class="sender">${message.senderDisplayName}</span>
                     <span class="timestamp">${message.formattedTime}</span>
@@ -481,7 +475,15 @@ class ChatFlowApp {
             </div>
         `).join('');
 
-        messagesList.scrollTop = messagesList.scrollHeight;
+        // Handle scrolling based on message ordering (newest first)
+        if (scrollBehavior === 'top') {
+            // Scroll to top for new messages (since newest messages are at the top)
+            messagesList.scrollTop = 0;
+        } else if (scrollBehavior === 'bottom') {
+            // Scroll to bottom for historical context
+            messagesList.scrollTop = messagesList.scrollHeight;
+        }
+        // 'none' - don't change scroll position
     }
 
     private escapeHtml(text: string): string {
@@ -559,7 +561,9 @@ class ChatFlowApp {
         `;
     }
 
-    public navigateToConversation(conversationId: string) {
+    public async navigateToConversation(conversationId: string, messageId?: string) {
+        console.log(`Navigating to conversation: ${conversationId}`, messageId ? `message: ${messageId}` : '');
+        
         // Switch to chat view
         this.switchView('chat');
         
@@ -572,12 +576,93 @@ class ChatFlowApp {
             conversationInput.value = conversationId;
         }
         
-        // Clear current messages and update display
-        this.messages = [];
-        this.updateConversationDisplay();
-        this.updateMessagesDisplay();
+        // Load conversation messages for better UX
+        await this.loadConversationMessages(conversationId, messageId);
         
-        console.log(`Navigated to conversation: ${conversationId}`);
+        this.updateConversationDisplay();
+    }
+
+    /**
+     * Load messages for a specific conversation
+     */
+    private async loadConversationMessages(conversationId: string, highlightMessageId?: string): Promise<void> {
+        try {
+            console.log('Loading conversation messages...');
+            
+            // Show loading state
+            const messagesList = document.getElementById('messagesList');
+            if (messagesList) {
+                messagesList.innerHTML = '<div class="loading">📡 Loading conversation...</div>';
+            }
+
+            // Load messages from the API
+            const response = await apiService.getConversationMessages(conversationId);
+            
+            if (response.success && response.data && response.data.data) {
+                // Convert to MessageDisplay format and handle Firestore timestamps
+                this.messages = response.data.data.map((message: any) => {
+                    // Convert Firestore timestamp to ISO string if needed
+                    let createdAt = message.createdAt;
+                    if (createdAt && typeof createdAt === 'object' && createdAt._seconds) {
+                        createdAt = new Date(createdAt._seconds * 1000 + createdAt._nanoseconds / 1000000).toISOString();
+                    }
+                    
+                    return {
+                        ...message,
+                        createdAt,
+                        cssClass: this.getMessageCssClass(message),
+                        formattedTime: this.formatTime(createdAt)
+                    };
+                });
+
+                // Sort by creation time (newest first for display)
+                this.messages.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                
+                this.updateMessagesDisplay('top'); // Scroll to top to show newest messages
+                
+                // Scroll to highlighted message if specified
+                if (highlightMessageId) {
+                    setTimeout(() => {
+                        this.scrollToMessage(highlightMessageId);
+                    }, 100);
+                }
+                
+                console.log(`✅ Loaded ${this.messages.length} messages for conversation ${conversationId}`);
+            } else {
+                console.error('Failed to load conversation messages:', response.error);
+                this.messages = [];
+                this.updateMessagesDisplay('none');
+                
+                if (messagesList) {
+                    messagesList.innerHTML = '<div class="error">❌ Failed to load conversation. You may need to send a message to start the conversation.</div>';
+                }
+            }
+        } catch (error) {
+            console.error('Error loading conversation messages:', error);
+            this.messages = [];
+            this.updateMessagesDisplay('none');
+            
+            const messagesList = document.getElementById('messagesList');
+            if (messagesList) {
+                messagesList.innerHTML = '<div class="error">❌ Failed to load conversation. Please try again.</div>';
+            }
+        }
+    }
+
+    /**
+     * Scroll to and highlight a specific message
+     */
+    private scrollToMessage(messageId: string): void {
+        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+        if (messageElement) {
+            messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            messageElement.classList.add('highlighted');
+            
+            // Remove highlight after 3 seconds
+            setTimeout(() => {
+                messageElement.classList.remove('highlighted');
+            }, 3000);
+        }
     }
 
     private getTimeAgo(date: Date): string {
@@ -650,14 +735,13 @@ class ChatFlowApp {
                 <div id="chatContent" class="content-panel">
                     <div class="chat-container">
                         <div class="conversation-info">
-                            <h3>💬 Conversation: ${this.conversationId || 'None'}</h3>
+                            <div class="conversation-id-input">
+                                <label for="conversationIdInput">🆔 Conversation ID:</label>
+                                <input id="conversationIdInput" type="text" value="${this.conversationId}" placeholder="Enter conversation ID or click from search results" />
+                            </div>
                             <div class="connection-status">
                                 <span class="${this.getConnectionStatusClass()}">🔗 ${this.connectionStatus}</span>
                             </div>
-                        </div>
-                        <div class="conversation-id-input">
-                            <label for="conversationIdInput">🆔 Conversation ID:</label>
-                            <input id="conversationIdInput" type="text" value="${this.conversationId}" placeholder="Enter conversation ID" />
                         </div>
                         <div class="messages-container">
                             <div id="messagesList" class="messages-list">
@@ -683,7 +767,7 @@ class ChatFlowApp {
         // Use setTimeout to ensure DOM is fully ready before binding events
         setTimeout(() => {
             this.bindEvents();
-            this.updateMessagesDisplay();
+            this.updateMessagesDisplay('none'); // Don't auto-scroll on interface load
             
             // Set default view and expose the app globally
             this.switchView(this.currentView);

@@ -273,9 +273,20 @@ export class SearchComponent {
 
     // Add click handlers to suggestions
     suggestionsList.querySelectorAll('.suggestion-item').forEach(item => {
-      item.addEventListener('click', () => {
+      item.addEventListener('click', async () => {
         const suggestion = item.getAttribute('data-suggestion');
+        const suggestionType = item.querySelector('.suggestion-type')?.textContent;
+        
         if (suggestion) {
+          // Track suggestion click for analytics
+          try {
+            await apiService.trackSuggestionClick(this.currentQuery, suggestion, suggestionType || 'unknown');
+            console.log('✅ Suggestion click tracked:', { query: this.currentQuery, suggestion, type: suggestionType });
+          } catch (error) {
+            console.error('Failed to track suggestion click:', error);
+            // Continue with search even if tracking fails
+          }
+          
           this.searchInput.value = suggestion;
           this.handleSearch();
         }
@@ -376,7 +387,7 @@ export class SearchComponent {
     // This would integrate with your app's routing
     console.log('Navigate to conversation:', conversationId, 'message:', messageId);
     
-    // Example: emit event or call router
+    // Emit event with both conversationId and messageId
     const event = new CustomEvent('navigateToConversation', {
       detail: { conversationId, messageId }
     });

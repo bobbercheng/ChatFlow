@@ -1287,4 +1287,71 @@ body {
   .result-meta {
     gap: 0.5rem;
   }
+}
+
+/* ==========================================================================
+   MESSAGE HIGHLIGHTING AND LOADING STATES
+   ========================================================================== */
+
+/* Highlighted message animation */
+.message.highlighted {
+    animation: highlight-pulse 2s ease-in-out;
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.4);
+    transform: scale(1.02);
+}
+
+@keyframes highlight-pulse {
+    0% {
+        background-color: rgba(102, 126, 234, 0.1);
+        box-shadow: 0 0 20px rgba(102, 126, 234, 0.4);
+    }
+    50% {
+        background-color: rgba(102, 126, 234, 0.2);
+        box-shadow: 0 0 30px rgba(102, 126, 234, 0.6);
+    }
+    100% {
+        background-color: transparent;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+}
+
+/* Loading state for conversation messages */
+.messages-list .loading {
+    text-align: center;
+    padding: 2rem;
+    color: #667eea;
+    font-size: 1.125rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.messages-list .loading::before {
+    content: '';
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f4f6;
+    border-top: 2px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.messages-list .error {
+    text-align: center;
+    padding: 2rem;
+    color: #dc3545;
+    font-size: 1rem;
+    font-weight: 500;
+    background: rgba(220, 53, 69, 0.1);
+    border-radius: 12px;
+    margin: 1rem;
+    border: 1px solid rgba(220, 53, 69, 0.2);
+}
+
+.messages-list .error::before {
+    content: '⚠️ ';
+    font-size: 1.25rem;
+    margin-right: 0.5rem;
 } 

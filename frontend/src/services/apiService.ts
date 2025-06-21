@@ -101,6 +101,21 @@ class ApiService {
         return this.request<any>(`/search/suggestions?${params}`);
     }
 
+    async trackSuggestionClick(query: string, suggestionText: string, suggestionType: string): Promise<ApiResponse<any>> {
+        return this.request<any>('/search/suggestions/click', {
+            method: 'POST',
+            body: JSON.stringify({
+                query,
+                suggestionText,
+                suggestionType,
+            }),
+        });
+    }
+
+    async getConversationMessages(conversationId: string, limit = 50): Promise<ApiResponse<{data: Message[], pagination: any}>> {
+        return this.request<{data: Message[], pagination: any}>(`/conversations/${conversationId}/messages?limit=${limit}&page=1`);
+    }
+
     // Get current API base URL for debugging
     getApiBaseUrl(): string {
         return API_BASE_URL;

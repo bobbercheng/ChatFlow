@@ -189,12 +189,21 @@ post_deployment() {
         fi
     fi
     
+    # Deploy frontend automatically
+    print_status "Deploying frontend..."
+    cd frontend
+    if npm run deploy; then
+        print_success "Frontend deployed successfully!"
+    else
+        print_warning "Frontend deployment failed. You can deploy it manually with: cd frontend && npm run deploy"
+    fi
+    cd ..
+    
     print_success "Deployment completed successfully!"
     echo
     echo "Next steps:"
-    echo "1. Update your frontend configuration to use the new API URL"
-    echo "2. Monitor the service: gcloud run logs tail chatflow-backend --region=$REGION"
-    echo "3. View metrics in Cloud Console: https://console.cloud.google.com/run"
+    echo "1. Monitor the service: gcloud run logs tail chatflow-backend --region=$REGION"
+    echo "2. View metrics in Cloud Console: https://console.cloud.google.com/run"
 }
 
 # Main deployment function
