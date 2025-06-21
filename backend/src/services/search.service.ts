@@ -130,7 +130,12 @@ export class FirestoreSearchService {
 
       // Deduplicate and sort by relevance
       const uniqueSuggestions = this.deduplicateAndRankSuggestions(suggestions, query);
-      const finalSuggestions = uniqueSuggestions.slice(0, limit);
+      let finalSuggestions = uniqueSuggestions.slice(0, limit);
+
+      // Fallback: if no suggestions found and query is long enough, try broader search
+      if (finalSuggestions.length === 0 && query.length >= 3) {
+        finalSuggestions = await this.getFallbackSuggestions(query, limit);
+      }
 
       // Cache the results
       this.cacheSuggestions(cacheKey, finalSuggestions);
@@ -461,7 +466,7 @@ export class FirestoreSearchService {
         const successRate = data['successRate'] || 0;
         const frequency = data['frequency'] || 1;
         
-        if (query && query !== partialQuery && query.length > partialQuery.length) {
+        if (query && query.length > partialQuery.length) { // Allow longer queries, remove exact match exclusion
           candidateQueries.push({
             query,
             frequency,
@@ -480,7 +485,7 @@ export class FirestoreSearchService {
         const frequency = data['frequency'] || 1;
         
         if (query && 
-            query !== partialQuery && 
+            query.length > partialQuery.length && // Only require longer queries, not different
             normalizedQuery.includes(partialQuery.toLowerCase()) &&
             !candidateQueries.some(c => c.query === query)) {
           candidateQueries.push({
@@ -510,7 +515,7 @@ export class FirestoreSearchService {
         const frequency = data['frequency'] || 1;
         
         if (query && 
-            query !== partialQuery && 
+            query.length > partialQuery.length && // Only longer queries 
             (normalizedQuery.startsWith(partialQuery.toLowerCase()) || 
              normalizedQuery.includes(partialQuery.toLowerCase())) &&
             !candidateQueries.some(c => c.query === query)) {
@@ -656,13 +661,13 @@ export class FirestoreSearchService {
       if (query.length < 2) return suggestions;
 
       // Simplified trending query to avoid complex index requirements
-      // First, get recent queries by lastUsed only
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      // First, get recent queries by lastUsed only (expanded to 30 days for better suggestions)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
       const trendingSnapshot = await admin.firestore()
         .collection('searchQueries')
-        .where('lastUsed', '>', admin.firestore.Timestamp.fromDate(sevenDaysAgo))
+        .where('lastUsed', '>', admin.firestore.Timestamp.fromDate(thirtyDaysAgo))
         .orderBy('lastUsed', 'desc')
         .limit(100) // Get more to filter in memory
         .get();
@@ -679,7 +684,7 @@ export class FirestoreSearchService {
         // Filter by frequency and query match in memory (more inclusive)
         if (frequency >= 1 && queryText && originalQuery && 
             queryText.includes(query.toLowerCase()) && 
-            queryText !== query.toLowerCase()) {
+            queryText.length > query.toLowerCase().length) { // Allow longer queries, not just different ones
           candidateQueries.push({
             query: originalQuery,
             frequency,
@@ -705,6 +710,109 @@ export class FirestoreSearchService {
       console.error('Error getting trending keywords:', error);
       return [];
     }
+  }
+
+  /**
+   * Get fallback suggestions when no results found
+   */
+  private async getFallbackSuggestions(query: string, limit: number): Promise<Suggestion[]> {
+    try {
+      const fallbackSuggestions: Suggestion[] = [];
+      
+      // 1. Try broader search - get any queries that contain any word from the search query
+      const queryWords = query.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+      
+      if (queryWords.length > 0) {
+        const broadSnapshot = await admin.firestore()
+          .collection('searchQueries')
+          .orderBy('frequency', 'desc')
+          .limit(50)
+          .get();
+
+        broadSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          const originalQuery = data['query'];
+          const normalizedQuery = data['normalizedQuery'] || '';
+          const frequency = data['frequency'] || 1;
+          
+          // Check if any query words appear in this stored query
+          const hasMatch = queryWords.some(word => 
+            normalizedQuery.includes(word) && normalizedQuery.length > query.length
+          );
+          
+          if (hasMatch && originalQuery) {
+            fallbackSuggestions.push({
+              text: originalQuery,
+              type: 'trending',
+              frequency,
+            });
+          }
+        });
+      }
+
+      // 2. If still no suggestions, add predefined contextual suggestions
+      if (fallbackSuggestions.length === 0) {
+        const predefinedSuggestions = this.getPredefinedSuggestions(query);
+        fallbackSuggestions.push(...predefinedSuggestions);
+      }
+
+      return fallbackSuggestions
+        .sort((a, b) => (b.frequency || 0) - (a.frequency || 0))
+        .slice(0, limit);
+        
+    } catch (error) {
+      console.error('Error getting fallback suggestions:', error);
+      // Return predefined suggestions as last resort
+      return this.getPredefinedSuggestions(query).slice(0, limit);
+    }
+  }
+
+  /**
+   * Get predefined contextual suggestions based on query
+   */
+  private getPredefinedSuggestions(query: string): Suggestion[] {
+    const queryLower = query.toLowerCase();
+    const suggestions: Suggestion[] = [];
+
+    // Search-related suggestions
+    if (queryLower.includes('search')) {
+      suggestions.push(
+        { text: 'search suggestions', type: 'completion', frequency: 10 },
+        { text: 'search results', type: 'completion', frequency: 9 },
+        { text: 'search backend', type: 'completion', frequency: 8 },
+        { text: 'search feature', type: 'completion', frequency: 7 },
+        { text: 'search functionality', type: 'completion', frequency: 6 }
+      );
+    }
+    
+    // Fire-related suggestions (for firestore, etc.)
+    else if (queryLower.includes('fire')) {
+      suggestions.push(
+        { text: 'firestore', type: 'completion', frequency: 10 },
+        { text: 'firebase', type: 'completion', frequency: 9 },
+        { text: 'firestore index', type: 'completion', frequency: 8 }
+      );
+    }
+    
+    // Backend-related suggestions
+    else if (queryLower.includes('back')) {
+      suggestions.push(
+        { text: 'backend api', type: 'completion', frequency: 10 },
+        { text: 'backend error', type: 'completion', frequency: 9 },
+        { text: 'backend deployment', type: 'completion', frequency: 8 }
+      );
+    }
+    
+    // General conversation topics
+    else if (queryLower.length >= 3) {
+      suggestions.push(
+        { text: `${query} suggestions`, type: 'completion', frequency: 5 },
+        { text: `${query} help`, type: 'completion', frequency: 4 },
+        { text: `${query} issue`, type: 'completion', frequency: 3 }
+      );
+    }
+
+    return suggestions;
   }
 
   /**

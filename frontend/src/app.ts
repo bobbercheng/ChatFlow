@@ -82,11 +82,25 @@ class ChatFlowApp {
         const searchTab = document.getElementById('searchTab') as HTMLButtonElement;
 
         if (chatTab) {
-            chatTab.addEventListener('click', () => this.switchView('chat'));
+            chatTab.addEventListener('click', () => {
+                console.log('Chat tab clicked');
+                this.switchView('chat');
+            });
         }
 
         if (searchTab) {
-            searchTab.addEventListener('click', () => this.switchView('search'));
+            searchTab.addEventListener('click', () => {
+                console.log('Search tab clicked');
+                this.switchView('search');
+                
+                // Extra safety: ensure SearchComponent is initialized after tab click
+                setTimeout(() => {
+                    if (!this.searchComponent) {
+                        console.log('SearchComponent missing after tab click, initializing...');
+                        this.initializeSearchComponent();
+                    }
+                }, 50);
+            });
         }
 
         // Chat interface events
@@ -170,6 +184,7 @@ class ChatFlowApp {
     }
 
     private switchView(view: 'chat' | 'search') {
+        console.log(`Switching to ${view} view`);
         this.currentView = view;
         
         // Update tab states
@@ -188,16 +203,41 @@ class ChatFlowApp {
             searchContent.style.display = view === 'search' ? 'block' : 'none';
 
             // Initialize SearchComponent when switching to search view
-            if (view === 'search' && !this.searchComponent) {
-                this.initializeSearchComponent();
+            if (view === 'search') {
+                if (!this.searchComponent) {
+                    this.initializeSearchComponent();
+                } else {
+                    console.log('SearchComponent already exists');
+                }
             }
+        } else {
+            console.error('Missing DOM elements for view switching:', {
+                chatTab: !!chatTab,
+                searchTab: !!searchTab, 
+                chatContent: !!chatContent,
+                searchContent: !!searchContent
+            });
         }
     }
 
     private initializeSearchComponent() {
+        console.log('Attempting to initialize SearchComponent...');
         const searchContent = document.getElementById('searchContent');
-        if (searchContent && !this.searchComponent) {
+        
+        if (!searchContent) {
+            console.error('SearchContent element not found');
+            return;
+        }
+        
+        if (this.searchComponent) {
+            console.log('SearchComponent already initialized');
+            return;
+        }
+
+        try {
+            console.log('Creating new SearchComponent instance');
             this.searchComponent = new SearchComponent(searchContent);
+            console.log('SearchComponent initialized successfully');
             
             // Listen for navigation events from SearchComponent
             window.addEventListener('navigateToConversation', (event: Event) => {
@@ -205,6 +245,14 @@ class ChatFlowApp {
                 const { conversationId } = customEvent.detail;
                 this.navigateToConversation(conversationId);
             });
+        } catch (error) {
+            console.error('Failed to initialize SearchComponent:', error);
+            // Fallback: try again after a short delay
+            setTimeout(() => {
+                console.log('Retrying SearchComponent initialization...');
+                this.searchComponent = null; // Reset flag
+                this.initializeSearchComponent();
+            }, 100);
         }
     }
 
@@ -632,12 +680,15 @@ class ChatFlowApp {
             </div>
         `;
 
-        this.bindEvents();
-        this.updateMessagesDisplay();
-        
-        // Set default view and expose the app globally
-        this.switchView(this.currentView);
-        (window as any).chatApp = this;
+        // Use setTimeout to ensure DOM is fully ready before binding events
+        setTimeout(() => {
+            this.bindEvents();
+            this.updateMessagesDisplay();
+            
+            // Set default view and expose the app globally
+            this.switchView(this.currentView);
+            (window as any).chatApp = this;
+        }, 0);
     }
 }
 
