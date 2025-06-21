@@ -7,6 +7,9 @@ jest.mock('../../../services/search.service', () => ({
     semanticSearch: jest.fn(),
     indexMessage: jest.fn(),
     indexAllMessages: jest.fn(),
+    getSuggestions: jest.fn(),
+    trackSearchQuery: jest.fn(),
+    trackSuggestionClick: jest.fn(),
   },
 }));
 
@@ -124,40 +127,127 @@ describe('Search Route Handlers (Unit Tests)', () => {
     });
   });
 
-  describe('Search Suggestions Logic', () => {
-    it('should generate search suggestions correctly', () => {
+  describe('Intelligent Search Suggestions Logic', () => {
+    it('should generate intelligent search suggestions correctly', async () => {
       const query = 'lunch';
+      const userId = 'test@example.com';
       const limit = 5;
 
-      // This simulates the logic from the suggestions endpoint
-      const suggestions = [
-        { suggestion: `${query} from last week`, type: 'recent', count: 5 },
-        { suggestion: `${query} discussions`, type: 'topic', count: 3 },
-        { suggestion: `recent ${query}`, type: 'recent', count: 2 },
+      // Mock intelligent suggestions response
+      const mockSuggestions = [
+        { text: 'lunch plans', type: 'completion' as const, frequency: 12 },
+        { text: 'lunch meeting', type: 'popular' as const, frequency: 8 },
+        { text: 'messages with alice', type: 'participant' as const, frequency: 5 },
+        { text: 'lunch discussion', type: 'trending' as const, frequency: 15 },
       ];
 
-      const result = suggestions.slice(0, limit);
+      mockSearchService.getSuggestions.mockResolvedValue(mockSuggestions);
 
-      expect(result).toHaveLength(3);
-      expect(result[0]).toHaveProperty('suggestion');
-      expect(result[0]).toHaveProperty('type');
-      expect(result[0]).toHaveProperty('count');
-      expect(result[0]?.suggestion).toContain(query);
+      const suggestions = await searchService.getSuggestions(query, userId, limit);
+
+      expect(mockSearchService.getSuggestions).toHaveBeenCalledWith(query, userId, limit);
+      expect(suggestions).toEqual(mockSuggestions);
+      expect(suggestions).toHaveLength(4);
+      expect(suggestions[0]).toHaveProperty('text');
+      expect(suggestions[0]).toHaveProperty('type');
+      expect(suggestions[0]).toHaveProperty('frequency');
     });
 
-    it('should respect limit parameter for suggestions', () => {
-      const query = 'test';
-      const limit = 2;
-
-      const suggestions = [
-        { suggestion: `${query} from last week`, type: 'recent', count: 5 },
-        { suggestion: `${query} discussions`, type: 'topic', count: 3 },
-        { suggestion: `recent ${query}`, type: 'recent', count: 2 },
+    it('should handle different suggestion types correctly', async () => {
+      const mockSuggestions = [
+        { text: 'lunch plans', type: 'completion' as const, frequency: 12 },
+        { text: 'lunch', type: 'popular' as const, frequency: 8 },
+        { text: 'messages with john', type: 'participant' as const, frequency: 5 },
+        { text: 'meeting lunch', type: 'trending' as const, frequency: 15 },
       ];
 
-      const result = suggestions.slice(0, limit);
+      mockSearchService.getSuggestions.mockResolvedValue(mockSuggestions);
 
-      expect(result).toHaveLength(2);
+      const suggestions = await searchService.getSuggestions('lunch', 'user@test.com', 10);
+
+      const types = suggestions.map(s => s.type);
+      expect(types).toContain('completion');
+      expect(types).toContain('popular');
+      expect(types).toContain('participant');
+      expect(types).toContain('trending');
+    });
+
+    it('should respect limit parameter for intelligent suggestions', async () => {
+      const mockSuggestions = [
+        { text: 'test query 1', type: 'completion' as const, frequency: 10 },
+        { text: 'test query 2', type: 'popular' as const, frequency: 8 },
+      ];
+
+      mockSearchService.getSuggestions.mockResolvedValue(mockSuggestions);
+
+      const suggestions = await searchService.getSuggestions('test', 'user@test.com', 2);
+
+      expect(suggestions).toHaveLength(2);
+    });
+
+    it('should handle suggestions service errors gracefully', async () => {
+      mockSearchService.getSuggestions.mockRejectedValue(new Error('Suggestions failed'));
+
+      try {
+        await searchService.getSuggestions('test', 'user@test.com', 5);
+        fail('Should have thrown an error');
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toBe('Suggestions failed');
+      }
+    });
+
+    it('should handle empty query gracefully', async () => {
+      mockSearchService.getSuggestions.mockResolvedValue([]);
+
+      const suggestions = await searchService.getSuggestions('', 'user@test.com', 5);
+
+      expect(suggestions).toEqual([]);
+      expect(mockSearchService.getSuggestions).toHaveBeenCalledWith('', 'user@test.com', 5);
+    });
+  });
+
+  describe('Search Analytics Logic', () => {
+    it('should track search queries correctly', async () => {
+      mockSearchService.trackSearchQuery.mockResolvedValue(undefined);
+
+      const query = 'test search';
+      const userId = 'user@test.com';
+      const resultCount = 5;
+
+      await searchService.trackSearchQuery(query, userId, resultCount);
+
+      expect(mockSearchService.trackSearchQuery).toHaveBeenCalledWith(query, userId, resultCount);
+    });
+
+    it('should track suggestion clicks correctly', async () => {
+      mockSearchService.trackSuggestionClick.mockResolvedValue(undefined);
+
+      const query = 'lunch';
+      const suggestionText = 'lunch plans';
+      const suggestionType = 'completion';
+      const userId = 'user@test.com';
+
+      await searchService.trackSuggestionClick(query, suggestionText, suggestionType, userId);
+
+      expect(mockSearchService.trackSuggestionClick).toHaveBeenCalledWith(
+        query, 
+        suggestionText, 
+        suggestionType, 
+        userId
+      );
+    });
+
+    it('should handle analytics tracking errors gracefully', async () => {
+      mockSearchService.trackSearchQuery.mockRejectedValue(new Error('Tracking failed'));
+
+      try {
+        await searchService.trackSearchQuery('test', 'user@test.com', 0);
+        fail('Should have thrown an error');
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toBe('Tracking failed');
+      }
     });
   });
 

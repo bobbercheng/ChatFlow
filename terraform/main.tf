@@ -25,10 +25,7 @@ resource "google_project_service" "required_apis" {
     "logging.googleapis.com",
     "monitoring.googleapis.com",
     "storage.googleapis.com",
-    "cloudfunctions.googleapis.com",
-    # "discoveryengine.googleapis.com",  # Enabled manually - managed outside Terraform
-    "documentai.googleapis.com",
-    "aiplatform.googleapis.com"
+    "cloudfunctions.googleapis.com"
   ])
 
   project = var.project_id
@@ -83,6 +80,26 @@ resource "google_firestore_index" "conversations_by_participant_and_date" {
   depends_on = [google_firestore_database.chatflow_db]
 }
 
+# Create Firestore index for search queries (trending analysis)
+# This index supports queries that filter by lastUsed and frequency with ordering
+resource "google_firestore_index" "search_queries_trending" {
+  project    = var.project_id
+  database   = google_firestore_database.chatflow_db.name
+  collection = "searchQueries"
+
+  fields {
+    field_path = "lastUsed"
+    order      = "ASCENDING"
+  }
+
+  fields {
+    field_path = "frequency"
+    order      = "ASCENDING"
+  }
+
+  depends_on = [google_firestore_database.chatflow_db]
+}
+
 # Single-field indexes are automatically created by Firestore
 # No need to explicitly create an index just for createdAt ordering
 # The index below is commented out because it's handled automatically
@@ -107,31 +124,7 @@ resource "google_storage_bucket" "functions_source" {
   depends_on = [google_project_service.required_apis]
 }
 
-# Vertex AI Search resources are managed manually via GCP Console
-# Data Store ID: chatflow-conversations (created manually)
-# Search Engine ID: chatflow-search-engine (to be created manually)
-# 
-# Manual creation required due to Terraform authentication limitations with Discovery Engine API
-# See VERTEX_AI_SEARCH_SETUP.md for step-by-step instructions
-
-# Grant additional IAM roles for AI services
-resource "google_project_iam_member" "chatflow_discovery_engine_admin" {
-  project = var.project_id
-  role    = "roles/discoveryengine.admin"
-  member  = "serviceAccount:${google_service_account.chatflow_service_account.email}"
-}
-
-resource "google_project_iam_member" "chatflow_aiplatform_user" {
-  project = var.project_id
-  role    = "roles/aiplatform.user"
-  member  = "serviceAccount:${google_service_account.chatflow_service_account.email}"
-}
-
-resource "google_project_iam_member" "chatflow_documentai_apiuser" {
-  project = var.project_id
-  role    = "roles/documentai.apiUser"
-  member  = "serviceAccount:${google_service_account.chatflow_service_account.email}"
-}
+# ChatFlow uses Firestore-based intelligent search - no external AI services needed
 
 # Create Pub/Sub topic for chatflow events
 resource "google_pubsub_topic" "chatflow_events" {
@@ -214,7 +207,7 @@ resource "google_cloud_run_v2_service" "chatflow_backend" {
     }
 
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/chatflow/backend:latest"
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/chatflow/backend:${var.backend_image_tag}"
       
       ports {
         container_port = 8080
@@ -260,21 +253,6 @@ resource "google_cloud_run_v2_service" "chatflow_backend" {
       env {
         name  = "CORS_ORIGIN"
         value = var.cors_origin
-      }
-
-      env {
-        name  = "VERTEX_AI_SEARCH_DATA_STORE_ID"
-        value = "chatflow-conversations"
-      }
-
-      env {
-        name  = "VERTEX_AI_SEARCH_ENGINE_ID"
-        value = "chatflow-search-engine"
-      }
-
-      env {
-        name  = "VERTEX_AI_LOCATION"
-        value = "global"
       }
 
       # Liveness probe

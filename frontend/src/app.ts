@@ -2,6 +2,7 @@ import { apiService } from './services/apiService.js';
 import { websocketService } from './services/websocketService.js';
 import { User, Message, WebSocketEvent } from './types/index.js';
 import { config } from './config/environment.js';
+import { SearchComponent } from './modules/chatflow/app/components/SearchComponent.js';
 
 interface MessageDisplay extends Message {
     cssClass: string;
@@ -28,6 +29,7 @@ class ChatFlowApp {
     private isInitializingWebSocket = false;
     private eventListenersAttached = false;
     private currentView: 'chat' | 'search' = 'chat';
+    private searchComponent: SearchComponent | null = null;
 
     constructor() {
         console.log('🚀 ChatFlow Frontend Starting...');
@@ -109,21 +111,7 @@ class ChatFlowApp {
             logoutBtn.addEventListener('click', this.handleLogoutBound);
         }
 
-        // Search events
-        const searchInput = document.getElementById('searchInput') as HTMLInputElement;
-        const searchButton = document.getElementById('searchButton') as HTMLButtonElement;
-
-        if (searchInput) {
-            searchInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    this.handleSearch();
-                }
-            });
-        }
-
-        if (searchButton) {
-            searchButton.addEventListener('click', this.handleSearch.bind(this));
-        }
+        // Search will be handled by SearchComponent when initialized
     }
 
     private handleLoginBound = () => this.handleLogin();
@@ -198,6 +186,25 @@ class ChatFlowApp {
             // Show/hide content
             chatContent.style.display = view === 'chat' ? 'flex' : 'none';
             searchContent.style.display = view === 'search' ? 'block' : 'none';
+
+            // Initialize SearchComponent when switching to search view
+            if (view === 'search' && !this.searchComponent) {
+                this.initializeSearchComponent();
+            }
+        }
+    }
+
+    private initializeSearchComponent() {
+        const searchContent = document.getElementById('searchContent');
+        if (searchContent && !this.searchComponent) {
+            this.searchComponent = new SearchComponent(searchContent);
+            
+            // Listen for navigation events from SearchComponent
+            window.addEventListener('navigateToConversation', (event: Event) => {
+                const customEvent = event as CustomEvent;
+                const { conversationId } = customEvent.detail;
+                this.navigateToConversation(conversationId);
+            });
         }
     }
 
@@ -620,38 +627,7 @@ class ChatFlowApp {
 
                 <!-- Search Content -->
                 <div id="searchContent" class="content-panel" style="display: none;">
-                    <div class="search-container" style="padding: 20px;">
-                        <h2>🔍 Search Conversations</h2>
-                        <p>Find messages and conversations using natural language</p>
-                        
-                        <div class="search-input-container" style="margin: 20px 0;">
-                            <input id="searchInput" type="text" placeholder="🔍 Search for messages... (e.g., 'lunch plans', 'project deadline')" 
-                                   style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px;">
-                            <button id="searchButton" style="margin-top: 10px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                🔍 Search
-                            </button>
-                        </div>
-                        
-                        <div id="searchResults" style="margin-top: 20px;">
-                            <div class="search-placeholder" style="text-align: center; color: #666; padding: 40px;">
-                                <p>💡 Try searching for:</p>
-                                <div style="margin: 10px 0;">
-                                    <button onclick="document.getElementById('searchInput').value='lunch plans'; window.chatApp?.handleSearch();" 
-                                            style="margin: 5px; padding: 8px 12px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
-                                        🍽️ lunch plans
-                                    </button>
-                                    <button onclick="document.getElementById('searchInput').value='project deadline'; window.chatApp?.handleSearch();" 
-                                            style="margin: 5px; padding: 8px 12px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
-                                        📅 project deadline
-                                    </button>
-                                    <button onclick="document.getElementById('searchInput').value='meeting today'; window.chatApp?.handleSearch();" 
-                                            style="margin: 5px; padding: 8px 12px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
-                                        📅 meeting today
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- SearchComponent will be initialized here -->
                 </div>
             </div>
         `;

@@ -94,8 +94,15 @@ configure_docker() {
 build_and_push_image() {
     print_status "Building Docker image..."
     
+    # Generate timestamp in the same format as terraform
+    IMAGE_TAG=$(date -u +"%Y-%m-%d-%H%M")
+    IMAGE_NAME="chatflow-backend:$IMAGE_TAG"
+    
+    print_status "Building image with tag: $IMAGE_TAG"
+    
     # Build the image from the root directory using the backend Dockerfile
-    docker build -f backend/Dockerfile -t "chatflow-backend:latest" .
+    # Force linux/amd64 platform for Cloud Run compatibility
+    docker build --platform linux/amd64 -f backend/Dockerfile -t "$IMAGE_NAME" .
     
     if [ $? -ne 0 ]; then
         print_error "Docker build failed"
@@ -103,13 +110,20 @@ build_and_push_image() {
     fi
     
     # Tag image for Artifact Registry
-    IMAGE_URL="$REGION-docker.pkg.dev/$PROJECT_ID/chatflow/backend:latest"
-    docker tag "chatflow-backend:latest" "$IMAGE_URL"
+    IMAGE_URL="$REGION-docker.pkg.dev/$PROJECT_ID/chatflow/backend:$IMAGE_TAG"
+    docker tag "$IMAGE_NAME" "$IMAGE_URL"
+    
+    # Also tag as latest for local development
+    docker tag "$IMAGE_NAME" "chatflow-backend:latest"
+    docker tag "$IMAGE_NAME" "$REGION-docker.pkg.dev/$PROJECT_ID/chatflow/backend:latest"
     
     print_success "Docker image built successfully"
     
     print_status "Pushing image to Artifact Registry..."
     docker push "$IMAGE_URL"
+    
+    # Also push latest tag
+    docker push "$REGION-docker.pkg.dev/$PROJECT_ID/chatflow/backend:latest"
     
     if [ $? -ne 0 ]; then
         print_error "Docker push failed"
@@ -117,6 +131,9 @@ build_and_push_image() {
     fi
     
     print_success "Docker image pushed successfully to $IMAGE_URL"
+    
+    # Export the image tag for terraform to use
+    export TF_VAR_backend_image_tag="$IMAGE_TAG"
 }
 
 # Function to deploy with Terraform
@@ -131,20 +148,11 @@ deploy_terraform() {
     
     # Plan the deployment
     print_status "Planning Terraform deployment..."
-    terraform plan
+    terraform plan -var="backend_image_tag=${TF_VAR_backend_image_tag:-latest}"
     
-    # Ask for confirmation
-    echo
-    read -p "Do you want to proceed with the deployment? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        print_warning "Deployment cancelled by user"
-        exit 0
-    fi
-    
-    # Apply the deployment
+    # Apply the deployment with auto-approval
     print_status "Applying Terraform configuration..."
-    terraform apply -auto-approve
+    terraform apply -auto-approve -var="backend_image_tag=${TF_VAR_backend_image_tag:-latest}"
     
     if [ $? -ne 0 ]; then
         print_error "Terraform apply failed"

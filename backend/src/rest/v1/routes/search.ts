@@ -149,17 +149,19 @@ router.get('/suggestions',
 
       const query = req.query['q'] as string;
       const limit = parseInt(req.query['limit'] as string) || 5;
+      const userId = req.user!.email;
 
-      // Simple suggestions for now
-      const suggestions = [
-        { suggestion: `${query} from last week`, type: 'recent', count: 5 },
-        { suggestion: `${query} discussions`, type: 'topic', count: 3 },
-        { suggestion: `recent ${query}`, type: 'recent', count: 2 },
-      ];
+      // Get intelligent suggestions using the search service
+      const suggestions = await searchService.getSuggestions(query, userId, limit);
 
       return res.json({
         success: true,
-        data: suggestions.slice(0, limit),
+        data: suggestions.map(s => ({
+          suggestion: s.text,
+          type: s.type,
+          count: s.frequency || 1,
+          category: s.category,
+        })),
       });
 
     } catch (error) {
@@ -263,6 +265,85 @@ router.post('/index-all',
         error: {
           message: 'Bulk indexing failed',
           details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /v1/search/suggestions/click:
+ *   post:
+ *     summary: Track when a user clicks on a suggestion
+ *     tags: [Search]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               query:
+ *                 type: string
+ *                 description: Original search query
+ *               suggestionText:
+ *                 type: string
+ *                 description: The suggestion that was clicked
+ *               suggestionType:
+ *                 type: string
+ *                 description: Type of suggestion (completion, popular, trending, etc.)
+ *     responses:
+ *       200:
+ *         description: Click tracked successfully
+ */
+router.post('/suggestions/click',
+  authenticateToken,
+  [
+    body('query')
+      .notEmpty()
+      .withMessage('Query is required'),
+    body('suggestionText')
+      .notEmpty()
+      .withMessage('Suggestion text is required'),
+    body('suggestionType')
+      .notEmpty()
+      .withMessage('Suggestion type is required'),
+  ],
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'Validation failed',
+            details: errors.array()
+          }
+        });
+      }
+
+      const { query, suggestionText, suggestionType } = req.body;
+      const userId = req.user!.email;
+
+      // Track the suggestion click
+      await searchService.trackSuggestionClick(query, suggestionText, suggestionType, userId);
+
+      return res.json({
+        success: true,
+        data: {
+          message: 'Suggestion click tracked successfully'
+        }
+      });
+
+    } catch (error) {
+      console.error('Suggestion click tracking error:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: 'Failed to track suggestion click'
         }
       });
     }

@@ -67,4 +67,10 @@ variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
   default     = "prod"
+}
+
+variable "backend_image_tag" {
+  description = "Tag for the backend Docker image"
+  type        = string
+  default     = "latest"
 } 
