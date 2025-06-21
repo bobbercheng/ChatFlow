@@ -1,14 +1,16 @@
 {
   "name": "chatflow-frontend",
   "version": "1.0.0",
-  "description": "ChatFlow Frontend with TypeScript",
-  "main": "index.js",
+  "description": "ChatFlow Frontend Application",
+  "main": "dist/app.js",
   "scripts": {
     "build": "tsc && cp src/*.html src/*.css dist/",
+    "build-with-cache-bust": "tsc && cp src/*.html src/*.css dist/ && node scripts/add-cache-bust.js",
     "dev": "tsc --watch",
     "start": "npm run build && python3 -m http.server 3003 --directory dist",
     "type-check": "tsc --noEmit"
   },
+  "dependencies": {},
   "devDependencies": {
     "typescript": "^5.0.0"
   }

@@ -58,4 +58,14 @@ output "pubsub_subscription" {
 output "service_account_email" {
   description = "The service account email"
   value       = google_service_account.chatflow_service_account.email
+}
+
+output "vertex_ai_search" {
+  description = "Vertex AI Search configuration (manually managed)"
+  value = {
+    data_store_id = "chatflow-conversations"
+    search_engine_id = "chatflow-search-engine"
+    location = "global"
+    status = "Manual setup required - see VERTEX_AI_SEARCH_SETUP.md"
+  }
 } 

@@ -24,7 +24,11 @@ resource "google_project_service" "required_apis" {
     "artifactregistry.googleapis.com",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
-    "storage.googleapis.com"
+    "storage.googleapis.com",
+    "cloudfunctions.googleapis.com",
+    # "discoveryengine.googleapis.com",  # Enabled manually - managed outside Terraform
+    "documentai.googleapis.com",
+    "aiplatform.googleapis.com"
   ])
 
   project = var.project_id
@@ -91,6 +95,43 @@ resource "google_firestore_index" "conversations_by_participant_and_date" {
 # Note: Subcollection indexes for messages are automatically handled by Firestore
 # for simple single-field queries (like ordering by createdAt)
 # Complex subcollection indexes may need to be created manually through the console if needed
+
+# Create Cloud Storage bucket for Cloud Functions source code
+resource "google_storage_bucket" "functions_source" {
+  name          = "${var.project_id}-functions-source"
+  location      = var.region
+  force_destroy = true
+
+  uniform_bucket_level_access = true
+
+  depends_on = [google_project_service.required_apis]
+}
+
+# Vertex AI Search resources are managed manually via GCP Console
+# Data Store ID: chatflow-conversations (created manually)
+# Search Engine ID: chatflow-search-engine (to be created manually)
+# 
+# Manual creation required due to Terraform authentication limitations with Discovery Engine API
+# See VERTEX_AI_SEARCH_SETUP.md for step-by-step instructions
+
+# Grant additional IAM roles for AI services
+resource "google_project_iam_member" "chatflow_discovery_engine_admin" {
+  project = var.project_id
+  role    = "roles/discoveryengine.admin"
+  member  = "serviceAccount:${google_service_account.chatflow_service_account.email}"
+}
+
+resource "google_project_iam_member" "chatflow_aiplatform_user" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.chatflow_service_account.email}"
+}
+
+resource "google_project_iam_member" "chatflow_documentai_apiuser" {
+  project = var.project_id
+  role    = "roles/documentai.apiUser"
+  member  = "serviceAccount:${google_service_account.chatflow_service_account.email}"
+}
 
 # Create Pub/Sub topic for chatflow events
 resource "google_pubsub_topic" "chatflow_events" {
@@ -221,6 +262,21 @@ resource "google_cloud_run_v2_service" "chatflow_backend" {
         value = var.cors_origin
       }
 
+      env {
+        name  = "VERTEX_AI_SEARCH_DATA_STORE_ID"
+        value = "chatflow-conversations"
+      }
+
+      env {
+        name  = "VERTEX_AI_SEARCH_ENGINE_ID"
+        value = "chatflow-search-engine"
+      }
+
+      env {
+        name  = "VERTEX_AI_LOCATION"
+        value = "global"
+      }
+
       # Liveness probe
       liveness_probe {
         http_get {
@@ -313,8 +369,8 @@ window.CHATFLOW_CONFIG = {
 };
 EOF
 
-      # Build the frontend
-      npm run build
+      # Build the frontend with cache busting
+      npm run build-with-cache-bust
       
       # Copy config to dist
       cp config.js dist/

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChatFlow</title>
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./styles.css?v=BUILD_TIMESTAMP">
     
     <!-- Additional styles for footer -->
     <style>
@@ -166,8 +166,8 @@
     </script>
     
     <!-- Load external configuration (if available) -->
-    <script src="./config.js" onerror="console.log('No external config.js file found, using environment detection')" onload="if (typeof updateSwaggerLink === 'function') updateSwaggerLink();"></script>
+    <script src="./config.js?v=BUILD_TIMESTAMP" onerror="console.log('No external config.js file found, using environment detection')" onload="if (typeof updateSwaggerLink === 'function') updateSwaggerLink();"></script>
     
-    <script type="module" src="./app.js"></script>
+    <script type="module" src="./app.js?v=BUILD_TIMESTAMP"></script>
 </body>
 </html> 

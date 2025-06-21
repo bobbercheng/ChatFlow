@@ -83,6 +83,24 @@ class ApiService {
         });
     }
 
+    async searchConversations(query: string, options: { limit?: number } = {}): Promise<ApiResponse<any>> {
+        const params = new URLSearchParams({
+            q: query,
+            ...(options.limit && { limit: options.limit.toString() }),
+        });
+
+        return this.request<any>(`/search/conversations?${params}`);
+    }
+
+    async getSearchSuggestions(query: string, limit = 5): Promise<ApiResponse<any>> {
+        const params = new URLSearchParams({
+            q: query,
+            limit: limit.toString(),
+        });
+
+        return this.request<any>(`/search/suggestions?${params}`);
+    }
+
     // Get current API base URL for debugging
     getApiBaseUrl(): string {
         return API_BASE_URL;

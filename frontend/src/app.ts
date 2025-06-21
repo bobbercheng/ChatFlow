@@ -8,6 +8,16 @@ interface MessageDisplay extends Message {
     formattedTime: string;
 }
 
+interface SearchResult {
+  messageId: string;
+  conversationId: string;
+  content: string;
+  senderId: string;
+  senderDisplayName: string;
+  createdAt: string;
+  relevanceScore: number;
+}
+
 class ChatFlowApp {
     private isLoggedIn = false;
     private currentUser: User | null = null;
@@ -17,6 +27,7 @@ class ChatFlowApp {
     private wsUnsubscribe: (() => void) | null = null;
     private isInitializingWebSocket = false;
     private eventListenersAttached = false;
+    private currentView: 'chat' | 'search' = 'chat';
 
     constructor() {
         console.log('🚀 ChatFlow Frontend Starting...');
@@ -32,7 +43,7 @@ class ChatFlowApp {
         if (token) {
             this.isLoggedIn = true;
             this.initializeWebSocket(token);
-            this.showChatInterface();
+            this.showMainInterface();
         } else {
             this.showLoginForm();
         }
@@ -59,6 +70,23 @@ class ChatFlowApp {
             passwordInput.addEventListener('keypress', this.handlePasswordKeyPressBound);
         }
 
+        // Main interface events
+        this.bindMainInterfaceEvents();
+    }
+
+    private bindMainInterfaceEvents() {
+        // Navigation tabs
+        const chatTab = document.getElementById('chatTab') as HTMLButtonElement;
+        const searchTab = document.getElementById('searchTab') as HTMLButtonElement;
+
+        if (chatTab) {
+            chatTab.addEventListener('click', () => this.switchView('chat'));
+        }
+
+        if (searchTab) {
+            searchTab.addEventListener('click', () => this.switchView('search'));
+        }
+
         // Chat interface events
         const sendBtn = document.getElementById('sendBtn') as HTMLButtonElement;
         const messageInput = document.getElementById('messageInput') as HTMLInputElement;
@@ -79,6 +107,22 @@ class ChatFlowApp {
 
         if (logoutBtn) {
             logoutBtn.addEventListener('click', this.handleLogoutBound);
+        }
+
+        // Search events
+        const searchInput = document.getElementById('searchInput') as HTMLInputElement;
+        const searchButton = document.getElementById('searchButton') as HTMLButtonElement;
+
+        if (searchInput) {
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.handleSearch();
+                }
+            });
+        }
+
+        if (searchButton) {
+            searchButton.addEventListener('click', this.handleSearch.bind(this));
         }
     }
 
@@ -137,77 +181,24 @@ class ChatFlowApp {
         }
     }
 
-    private showLoginForm() {
-        const app = document.getElementById('app');
-        if (!app) return;
+    private switchView(view: 'chat' | 'search') {
+        this.currentView = view;
+        
+        // Update tab states
+        const chatTab = document.getElementById('chatTab');
+        const searchTab = document.getElementById('searchTab');
+        const chatContent = document.getElementById('chatContent');
+        const searchContent = document.getElementById('searchContent');
 
-        app.innerHTML = `
-            <div class="chat-app">
-                <div class="header">
-                    <h1>${config.APP_NAME}</h1>
-                </div>
-                <div class="login-container">
-                    <div class="login-form">
-                        <h2>Login to ChatFlow</h2>
-                        <div class="form-group">
-                            <label for="email">Email:</label>
-                            <input id="email" type="email" placeholder="Enter your email" />
-                        </div>
-                        <div class="form-group">
-                            <label for="password">Password:</label>
-                            <input id="password" type="password" placeholder="Enter your password" />
-                        </div>
-                        <button id="loginBtn" class="login-btn">Login</button>
-                        <div id="loginError" class="error-message" style="display: none;"></div>
-                    </div>
-                </div>
-            </div>
-        `;
+        if (chatTab && searchTab && chatContent && searchContent) {
+            // Update active tab styling
+            chatTab.classList.toggle('active', view === 'chat');
+            searchTab.classList.toggle('active', view === 'search');
 
-        this.bindEvents();
-    }
-
-    private showChatInterface() {
-        const app = document.getElementById('app');
-        if (!app) return;
-
-        app.innerHTML = `
-            <div class="chat-app">
-                <div class="header">
-                    <h1>${config.APP_NAME}</h1>
-                    <div class="user-info">
-                        <span>Welcome, ${this.currentUser?.displayName || 'User'}</span>
-                        <button id="logoutBtn" class="logout-btn">Logout</button>
-                    </div>
-                </div>
-                <div class="chat-container">
-                    <div class="conversation-info">
-                        <h3>Conversation: ${this.conversationId || 'None'}</h3>
-                        <div class="connection-status">
-                            <span class="${this.getConnectionStatusClass()}">${this.connectionStatus}</span>
-                        </div>
-                    </div>
-                    <div class="conversation-id-input">
-                        <label for="conversationIdInput">Conversation ID:</label>
-                        <input id="conversationIdInput" type="text" value="${this.conversationId}" placeholder="Enter conversation ID" />
-                    </div>
-                    <div class="messages-container">
-                        <div id="messagesList" class="messages-list">
-                            <!-- Messages will be inserted here -->
-                        </div>
-                    </div>
-                    <div class="message-input-container">
-                        <div class="message-input">
-                            <input id="messageInput" type="text" placeholder="Type a message..." />
-                            <button id="sendBtn">Send</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        this.bindEvents();
-        this.updateMessagesDisplay();
+            // Show/hide content
+            chatContent.style.display = view === 'chat' ? 'flex' : 'none';
+            searchContent.style.display = view === 'search' ? 'block' : 'none';
+        }
     }
 
     private async handleLogin() {
@@ -241,7 +232,7 @@ class ChatFlowApp {
                 apiService.setToken(response.data.token);
                 
                 await this.initializeWebSocket(response.data.token);
-                this.showChatInterface();
+                this.showMainInterface();
             } else {
                 this.showError(response.error?.message || 'Login failed');
             }
@@ -450,6 +441,227 @@ class ChatFlowApp {
             errorDiv.textContent = message;
             errorDiv.style.display = 'block';
         }
+    }
+
+    private async handleSearch() {
+        const searchInput = document.getElementById('searchInput') as HTMLInputElement;
+        const searchResults = document.getElementById('searchResults') as HTMLElement;
+        
+        if (!searchInput || !searchResults) return;
+
+        const query = searchInput.value.trim();
+        if (!query) return;
+
+        // Show loading
+        searchResults.innerHTML = '<div class="loading">🔍 Searching...</div>';
+
+        try {
+            const response = await apiService.searchConversations(query, { limit: 20 });
+            
+            if (response.success && response.data?.results) {
+                this.displaySearchResults(response.data.results);
+            } else {
+                searchResults.innerHTML = '<div class="error">❌ Search failed. Please try again.</div>';
+            }
+        } catch (error) {
+            console.error('Search error:', error);
+            searchResults.innerHTML = '<div class="error">❌ Search failed. Please check your connection.</div>';
+        }
+    }
+
+    private displaySearchResults(results: SearchResult[]) {
+        const searchResults = document.getElementById('searchResults') as HTMLElement;
+        
+        if (results.length === 0) {
+            searchResults.innerHTML = '<div class="no-results">🔍 No results found. Try different keywords.</div>';
+            return;
+        }
+
+        const resultsHtml = results.map(result => {
+            const createdAt = new Date(result.createdAt);
+            const timeAgo = this.getTimeAgo(createdAt);
+            const relevancePercentage = Math.round(result.relevanceScore * 100);
+            
+            return `
+                <div class="search-result" onclick="window.chatApp?.navigateToConversation('${result.conversationId}')">
+                    <div class="result-header">
+                        <strong>👤 ${this.escapeHtml(result.senderDisplayName)}</strong>
+                        <span class="time">🕒 ${timeAgo} • ⭐ ${relevancePercentage}% match</span>
+                    </div>
+                    <div class="result-content">
+                        ${this.escapeHtml(result.content.substring(0, 200))}${result.content.length > 200 ? '...' : ''}
+                    </div>
+                    <div class="result-conversation">
+                        💬 Conversation: ${result.conversationId}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        searchResults.innerHTML = `
+            <div class="results-header">✅ Found ${results.length} results</div>
+            ${resultsHtml}
+        `;
+    }
+
+    public navigateToConversation(conversationId: string) {
+        // Switch to chat view
+        this.switchView('chat');
+        
+        // Set the conversation ID
+        this.conversationId = conversationId;
+        
+        // Update the conversation input
+        const conversationInput = document.getElementById('conversationIdInput') as HTMLInputElement;
+        if (conversationInput) {
+            conversationInput.value = conversationId;
+        }
+        
+        // Clear current messages and update display
+        this.messages = [];
+        this.updateConversationDisplay();
+        this.updateMessagesDisplay();
+        
+        console.log(`Navigated to conversation: ${conversationId}`);
+    }
+
+    private getTimeAgo(date: Date): string {
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        const diffHours = Math.floor(diffMinutes / 60);
+        const diffDays = Math.floor(diffHours / 24);
+
+        if (diffMinutes < 60) return `${diffMinutes}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        return `${diffDays}d ago`;
+    }
+
+    private showLoginForm() {
+        const app = document.getElementById('app');
+        if (!app) return;
+
+        app.innerHTML = `
+            <div class="chat-app">
+                <div class="header">
+                    <h1>💬 ${config.APP_NAME}</h1>
+                </div>
+                <div class="login-container">
+                    <div class="login-form">
+                        <h2>🔐 Login to ChatFlow</h2>
+                        <div class="form-group">
+                            <label for="email">📧 Email:</label>
+                            <input id="email" type="email" placeholder="Enter your email" />
+                        </div>
+                        <div class="form-group">
+                            <label for="password">🔒 Password:</label>
+                            <input id="password" type="password" placeholder="Enter your password" />
+                        </div>
+                        <button id="loginBtn" class="login-btn">🚀 Login</button>
+                        <div id="loginError" class="error-message" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        this.bindEvents();
+    }
+
+    private showMainInterface() {
+        const app = document.getElementById('app');
+        if (!app) return;
+
+        app.innerHTML = `
+            <div class="chat-app">
+                <div class="header">
+                    <h1>💬 ${config.APP_NAME}</h1>
+                    <div class="user-info">
+                        <span>👋 Welcome, ${this.currentUser?.displayName || 'User'}</span>
+                        <button id="logoutBtn" class="logout-btn">🚪 Logout</button>
+                    </div>
+                </div>
+                
+                <!-- Navigation Tabs -->
+                <div class="nav-tabs">
+                    <button id="chatTab" class="nav-tab active">
+                        💬 Chat
+                    </button>
+                    <button id="searchTab" class="nav-tab">
+                        🔍 Search
+                    </button>
+                </div>
+
+                <!-- Chat Content -->
+                <div id="chatContent" class="content-panel">
+                    <div class="chat-container">
+                        <div class="conversation-info">
+                            <h3>💬 Conversation: ${this.conversationId || 'None'}</h3>
+                            <div class="connection-status">
+                                <span class="${this.getConnectionStatusClass()}">🔗 ${this.connectionStatus}</span>
+                            </div>
+                        </div>
+                        <div class="conversation-id-input">
+                            <label for="conversationIdInput">🆔 Conversation ID:</label>
+                            <input id="conversationIdInput" type="text" value="${this.conversationId}" placeholder="Enter conversation ID" />
+                        </div>
+                        <div class="messages-container">
+                            <div id="messagesList" class="messages-list">
+                                <!-- Messages will be inserted here -->
+                            </div>
+                        </div>
+                        <div class="message-input-container">
+                            <div class="message-input">
+                                <input id="messageInput" type="text" placeholder="Type a message..." />
+                                <button id="sendBtn">📤 Send</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search Content -->
+                <div id="searchContent" class="content-panel" style="display: none;">
+                    <div class="search-container" style="padding: 20px;">
+                        <h2>🔍 Search Conversations</h2>
+                        <p>Find messages and conversations using natural language</p>
+                        
+                        <div class="search-input-container" style="margin: 20px 0;">
+                            <input id="searchInput" type="text" placeholder="🔍 Search for messages... (e.g., 'lunch plans', 'project deadline')" 
+                                   style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px;">
+                            <button id="searchButton" style="margin-top: 10px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                🔍 Search
+                            </button>
+                        </div>
+                        
+                        <div id="searchResults" style="margin-top: 20px;">
+                            <div class="search-placeholder" style="text-align: center; color: #666; padding: 40px;">
+                                <p>💡 Try searching for:</p>
+                                <div style="margin: 10px 0;">
+                                    <button onclick="document.getElementById('searchInput').value='lunch plans'; window.chatApp?.handleSearch();" 
+                                            style="margin: 5px; padding: 8px 12px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                                        🍽️ lunch plans
+                                    </button>
+                                    <button onclick="document.getElementById('searchInput').value='project deadline'; window.chatApp?.handleSearch();" 
+                                            style="margin: 5px; padding: 8px 12px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                                        📅 project deadline
+                                    </button>
+                                    <button onclick="document.getElementById('searchInput').value='meeting today'; window.chatApp?.handleSearch();" 
+                                            style="margin: 5px; padding: 8px 12px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                                        📅 meeting today
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        this.bindEvents();
+        this.updateMessagesDisplay();
+        
+        // Set default view and expose the app globally
+        this.switchView(this.currentView);
+        (window as any).chatApp = this;
     }
 }
 

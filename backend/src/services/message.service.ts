@@ -12,6 +12,15 @@ import {
   CreateMessageData
 } from '../types/firestore';
 
+// Import search service but handle if not available
+let searchService: any;
+try {
+  searchService = require('./search.service').searchService;
+} catch (error) {
+  console.warn('Search service not available, message indexing will be skipped');
+  searchService = null;
+}
+
 export class MessageServiceFirestore {
   async createMessage(data: CreateMessageData): Promise<MessageWithSender> {
     const { conversationId, senderId, content, messageType = MessageType.TEXT } = data;
@@ -74,6 +83,13 @@ export class MessageServiceFirestore {
 
       // Notify recipients after transaction commit (fire-and-forget)
       notificationService.handleNewMessage(messageData, conversationId).catch(console.error);
+
+      // Index message for search after transaction commit (fire-and-forget)
+      if (searchService) {
+        searchService.indexMessage(messageData, conversationId).catch((error: any) => {
+          console.error('Failed to index message for search:', error);
+        });
+      }
 
       return messageWithSender;
     });
