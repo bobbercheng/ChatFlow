@@ -3,6 +3,7 @@
 # Required variables
 project_id = "your-gcp-project-id"
 jwt_secret = "your-super-secret-jwt-key-change-this-in-production"
+admin_email = "admin@yourdomain.com"
 
 # Optional variables (defaults shown)
 region            = "us-central1"

@@ -465,4 +465,127 @@ export {
   mockFirestoreAdapter,
   mockPubSubAdapter,
   mockSearchService,
-}; 
+};
+
+// Global test setup - runs before all tests
+
+// Comprehensive Firestore mocking for all tests
+const mockDoc = {
+  set: jest.fn().mockResolvedValue({}),
+  get: jest.fn().mockResolvedValue({
+    exists: false,
+    data: () => null,
+    id: 'mock-doc-id',
+  }),
+  update: jest.fn().mockResolvedValue({}),
+  delete: jest.fn().mockResolvedValue({}),
+};
+
+const mockCollection = {
+  doc: jest.fn(() => mockDoc),
+  add: jest.fn().mockResolvedValue({ id: 'mock-id' }),
+  where: jest.fn().mockReturnThis(),
+  orderBy: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis(),
+  get: jest.fn().mockResolvedValue({ 
+    docs: [],
+    empty: true,
+    size: 0
+  }),
+};
+
+const mockFirestore = {
+  collection: jest.fn(() => mockCollection),
+  doc: jest.fn(() => mockDoc),
+  batch: jest.fn(() => ({
+    set: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    commit: jest.fn().mockResolvedValue([]),
+  })),
+  runTransaction: jest.fn(),
+  Timestamp: {
+    now: jest.fn(() => ({ 
+      toDate: () => new Date(),
+      seconds: Math.floor(Date.now() / 1000),
+      nanoseconds: 0
+    })),
+    fromDate: jest.fn((date) => ({ 
+      toDate: () => date,
+      seconds: Math.floor(date.getTime() / 1000),
+      nanoseconds: 0
+    })),
+  },
+  FieldValue: {
+    delete: jest.fn(),
+    serverTimestamp: jest.fn(),
+    arrayUnion: jest.fn(),
+    arrayRemove: jest.fn(),
+    increment: jest.fn(),
+  },
+};
+
+// Mock Firebase Admin SDK
+jest.mock('firebase-admin', () => ({
+  firestore: jest.fn(() => mockFirestore),
+  initializeApp: jest.fn(),
+  credential: {
+    applicationDefault: jest.fn(),
+    cert: jest.fn(),
+  },
+  app: jest.fn(() => ({
+    firestore: jest.fn(() => mockFirestore),
+  })),
+}));
+
+// Mock Firebase Admin Firestore module
+jest.mock('firebase-admin/firestore', () => ({
+  getFirestore: jest.fn(() => mockFirestore),
+  Timestamp: mockFirestore.Timestamp,
+  FieldValue: mockFirestore.FieldValue,
+}));
+
+// Mock the Firestore config
+jest.mock('./config/firestore', () => ({
+  initializeFirestore: jest.fn(() => mockFirestore),
+  db: mockFirestore,
+  Timestamp: mockFirestore.Timestamp,
+  FieldValue: mockFirestore.FieldValue,
+}));
+
+// Export mock objects for use in tests
+(global as any).mockFirestore = mockFirestore;
+(global as any).mockCollection = mockCollection;
+(global as any).mockDoc = mockDoc;
+
+// Set up global test environment
+beforeEach(() => {
+  // Reset all mocks between tests
+  jest.clearAllMocks();
+  
+  // Reset Firestore mocks to default state
+  mockDoc.get.mockResolvedValue({
+    exists: false,
+    data: () => null,
+    id: 'mock-doc-id',
+  });
+  mockDoc.set.mockResolvedValue({});
+  mockDoc.update.mockResolvedValue({});
+  mockDoc.delete.mockResolvedValue({});
+  mockCollection.get.mockResolvedValue({ 
+    docs: [],
+    empty: true,
+    size: 0
+  });
+  mockCollection.add.mockResolvedValue({ id: 'mock-id' });
+});
+
+// Suppress console errors during tests unless explicitly needed
+const originalConsoleError = console.error;
+beforeEach(() => {
+  console.error = jest.fn();
+});
+
+afterEach(() => {
+  console.error = originalConsoleError;
+}); 

@@ -6,11 +6,13 @@ import YAML from 'yamljs';
 import path from 'path';
 
 import { errorHandler } from './middleware/error';
+import { combinedRateLimit } from './middleware/rate-limit';
 import { authRoutes } from './rest/v1/routes/auth';
 import { userRoutes } from './rest/v1/routes/users';
 import { conversationRoutes } from './rest/v1/routes/conversations';
 import { messageRoutes } from './rest/v1/routes/messages';
 import searchRoutes from './rest/v1/routes/search';
+import { adminRoutes } from './rest/v1/routes/admin';
 import { healthService } from './services/health.service';
 
 const app = express();
@@ -130,6 +132,9 @@ app.get('/health', async (_req, res) => {
   }
 });
 
+// Apply rate limiting to all API routes
+app.use('/v1', combinedRateLimit);
+
 // API routes
 app.use('/v1/auth', authRoutes);
 app.use('/v1/users', userRoutes);
@@ -137,6 +142,7 @@ app.use('/v1/conversations', conversationRoutes);
 app.use('/v1/conversations', messageRoutes);
 app.use('/v1/messages', messageRoutes);
 app.use('/v1/search', searchRoutes);
+app.use('/v1/admin', adminRoutes);
 
 // 404 handler
 app.use('*', (_req, res) => {

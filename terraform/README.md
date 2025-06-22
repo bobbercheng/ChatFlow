@@ -57,6 +57,7 @@ To clean up all resources:
 
 - **`project_id`**: Your GCP project ID
 - **`jwt_secret`**: Secret key for JWT tokens
+- **`admin_email`**: Admin email address for rate limit management and administrative access
 
 ### Optional Variables
 
@@ -140,6 +141,7 @@ The Cloud Run service is configured with these environment variables:
 - `JWT_SECRET`: From terraform.tfvars
 - `JWT_EXPIRES_IN`: Token expiration time
 - `CORS_ORIGIN`: Frontend origin
+- `ADMIN_EMAIL`: Admin email for rate limit management
 
 ## Troubleshooting
 
@@ -222,6 +224,7 @@ Required values:
 ```hcl
 project_id = "your-gcp-project-id"
 jwt_secret = "your-secure-random-secret"
+admin_email = "admin@yourdomain.com"
 ```
 
 ## Security Notes

@@ -118,6 +118,9 @@ describe('OpenAPI-Routes Consistency', () => {
            case 'search':
              fullPath = `/search${route.path}`;
              break;
+           case 'admin':
+             fullPath = `/admin${route.path}`;
+             break;
          }
         
         return {

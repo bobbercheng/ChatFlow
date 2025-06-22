@@ -316,6 +316,131 @@ components:
           maxLength: 10000
           description: Updated message content
 
+    UserRateLimit:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        requestsPerHour:
+          type: integer
+          minimum: 1
+        requestsPerDay:
+          type: integer
+          minimum: 1
+          nullable: true
+        tier:
+          type: string
+          enum: [basic, premium, admin, custom]
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    RateLimitViolation:
+      type: object
+      properties:
+        id:
+          type: string
+        ipAddress:
+          type: string
+        userEmail:
+          type: string
+          format: email
+          nullable: true
+        violationType:
+          type: string
+          enum: [ip_limit, user_limit, invalid_token, abuse_detected]
+        endpoint:
+          type: string
+        userAgent:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        requestCount:
+          type: integer
+        limit:
+          type: integer
+
+    RateLimitConfig:
+      type: object
+      properties:
+        unauthorized:
+          type: object
+          properties:
+            windowMs:
+              type: integer
+            max:
+              type: integer
+        authorized:
+          type: object
+          properties:
+            windowMs:
+              type: integer
+            max:
+              type: integer
+        punishment:
+          type: object
+          properties:
+            windowMs:
+              type: integer
+            max:
+              type: integer
+            duration:
+              type: integer
+        premium:
+          type: object
+          properties:
+            windowMs:
+              type: integer
+            max:
+              type: integer
+        admin:
+          type: object
+          properties:
+            windowMs:
+              type: integer
+            max:
+              type: integer
+
+    SetUserRateLimitRequest:
+      type: object
+      required:
+        - requestsPerHour
+        - tier
+      properties:
+        requestsPerHour:
+          type: integer
+          minimum: 1
+        requestsPerDay:
+          type: integer
+          minimum: 1
+        tier:
+          type: string
+          enum: [basic, premium, admin, custom]
+        expiresAt:
+          type: string
+          format: date-time
+
+    ClearPunishmentRequest:
+      type: object
+      required:
+        - ipAddress
+      properties:
+        ipAddress:
+          type: string
+        userEmail:
+          type: string
+          format: email
+
 paths:
   /auth/register:
     post:
@@ -1179,6 +1304,494 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Performance service error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/rate-limits/users:
+    get:
+      tags:
+        - Admin - Rate Limits
+      summary: Get all user rate limits
+      description: Retrieve a list of all custom user rate limits (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of user rate limits retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/UserRateLimit'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/rate-limits/users/{email}:
+    get:
+      tags:
+        - Admin - Rate Limits
+      summary: Get rate limit for specific user
+      description: Retrieve rate limit configuration for a specific user (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+            format: email
+          description: User email address
+      responses:
+        '200':
+          description: User rate limit retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserRateLimit'
+        '400':
+          description: Invalid email format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User rate limit not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Admin - Rate Limits
+      summary: Set or update user rate limit
+      description: Create or update rate limit configuration for a specific user (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+            format: email
+          description: User email address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetUserRateLimitRequest'
+      responses:
+        '200':
+          description: User rate limit updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: "User rate limit updated successfully"
+                          userRateLimit:
+                            $ref: '#/components/schemas/UserRateLimit'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Admin - Rate Limits
+      summary: Remove user rate limit
+      description: Remove custom rate limit for a user, reverting to default limits (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+            format: email
+          description: User email address
+      responses:
+        '200':
+          description: User rate limit removed successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: "User rate limit removed successfully"
+        '400':
+          description: Invalid email format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/rate-limits/violations:
+    get:
+      tags:
+        - Admin - Rate Limits
+      summary: Get rate limit violations
+      description: Retrieve rate limit violations with optional filtering (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ipAddress
+          in: query
+          schema:
+            type: string
+          description: Filter by IP address
+        - name: userEmail
+          in: query
+          schema:
+            type: string
+            format: email
+          description: Filter by user email
+        - name: violationType
+          in: query
+          schema:
+            type: string
+            enum: [ip_limit, user_limit, invalid_token, abuse_detected]
+          description: Filter by violation type
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter violations after this date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter violations before this date
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 50
+          description: Maximum number of violations to return
+      responses:
+        '200':
+          description: Rate limit violations retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RateLimitViolation'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/rate-limits/punishments/clear:
+    post:
+      tags:
+        - Admin - Rate Limits
+      summary: Clear punishment for IP/user
+      description: Remove active punishment for a specific IP address and optionally user (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClearPunishmentRequest'
+      responses:
+        '200':
+          description: Punishment cleared successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: "Punishment cleared successfully"
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/rate-limits/analytics:
+    get:
+      tags:
+        - Admin - Rate Limits
+      summary: Get rate limit analytics and statistics
+      description: Retrieve aggregated statistics about rate limit violations and usage patterns (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: Start date for analytics period
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: End date for analytics period
+      responses:
+        '200':
+          description: Rate limit analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          timeRange:
+                            type: object
+                            properties:
+                              startDate:
+                                type: string
+                                format: date-time
+                              endDate:
+                                type: string
+                                format: date-time
+                          totalViolations:
+                            type: integer
+                            description: Total number of violations in the period
+                          violationsByType:
+                            type: object
+                            additionalProperties:
+                              type: integer
+                            description: Violations grouped by type
+                          violationsByEndpoint:
+                            type: object
+                            additionalProperties:
+                              type: integer
+                            description: Violations grouped by endpoint
+                          uniqueIPsCount:
+                            type: integer
+                            description: Number of unique IP addresses that violated limits
+                          uniqueUsersCount:
+                            type: integer
+                            description: Number of unique users that violated limits
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/rate-limits/config:
+    get:
+      tags:
+        - Admin - Rate Limits
+      summary: Get current rate limit configuration
+      description: Retrieve the current system-wide rate limit configuration (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rate limit configuration retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RateLimitConfig'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
           content:
             application/json:
               schema:

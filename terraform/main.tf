@@ -255,6 +255,11 @@ resource "google_cloud_run_v2_service" "chatflow_backend" {
         value = var.cors_origin
       }
 
+      env {
+        name  = "ADMIN_EMAIL"
+        value = var.admin_email
+      }
+
       # Search Service Configuration
       env {
         name  = "SEARCH_CACHE_TTL"
