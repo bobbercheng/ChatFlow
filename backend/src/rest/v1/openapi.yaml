@@ -284,6 +284,38 @@ components:
               type: string
             details: {}
 
+    ClickTrackingRequest:
+      type: object
+      required:
+        - query
+        - suggestionText
+        - suggestionType
+      properties:
+        query:
+          type: string
+          description: Original search query that led to the suggestion
+          example: "lunch"
+        suggestionText:
+          type: string
+          description: The suggestion that was clicked
+          example: "lunch plans"
+        suggestionType:
+          type: string
+          description: Type of suggestion that was clicked
+          enum: [recent, topic, user, keyword, completion, popular, trending]
+          example: "completion"
+
+    UpdateMessageRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: Updated message content
+
 paths:
   /auth/register:
     post:
@@ -531,6 +563,154 @@ paths:
                       data:
                         $ref: '#/components/schemas/Message'
 
+  /conversations/{conversationId}/messages/{messageId}:
+    get:
+      tags:
+        - Messages
+      summary: Get a specific message in a conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^conv_[0-9]+_[a-z0-9]+$'
+            description: 'Conversation ID in format: conv_{timestamp}_{randomString}'
+            example: 'conv_1750386041311_fpmswok2p'
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^msg_[0-9]+_[a-z0-9]+$'
+            description: 'Message ID in format: msg_{timestamp}_{randomString}'
+            example: 'msg_1750386041311_abc123def'
+      responses:
+        '200':
+          description: Message retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Message'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Messages
+      summary: Update a specific message in a conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^conv_[0-9]+_[a-z0-9]+$'
+            description: 'Conversation ID in format: conv_{timestamp}_{randomString}'
+            example: 'conv_1750386041311_fpmswok2p'
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^msg_[0-9]+_[a-z0-9]+$'
+            description: 'Message ID in format: msg_{timestamp}_{randomString}'
+            example: 'msg_1750386041311_abc123def'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMessageRequest'
+      responses:
+        '200':
+          description: Message updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Message'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Messages
+      summary: Delete a specific message in a conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^conv_[0-9]+_[a-z0-9]+$'
+            description: 'Conversation ID in format: conv_{timestamp}_{randomString}'
+            example: 'conv_1750386041311_fpmswok2p'
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^msg_[0-9]+_[a-z0-9]+$'
+            description: 'Message ID in format: msg_{timestamp}_{randomString}'
+            example: 'msg_1750386041311_abc123def'
+      responses:
+        '204':
+          description: Message deleted successfully
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /search/conversations:
     get:
       tags:
@@ -587,24 +767,82 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - Search
+      summary: Search conversations (POST version for web clients)
+      description: Same functionality as GET but via POST to potentially reduce OPTIONS preflight overhead in some scenarios
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - q
+              properties:
+                q:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                  description: Search query (supports natural language)
+                  example: "lunch plans with Sarah"
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 50
+                  default: 20
+                  description: Maximum number of results to return
+      responses:
+        '200':
+          description: Search results with semantic relevance scoring
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SearchResponse'
+        '400':
+          description: Invalid search parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Search service error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /search/suggestions:
     get:
       tags:
         - Search
-      summary: Get search suggestions based on user input
-      description: Retrieve intelligent search suggestions to help users discover relevant content
+      summary: Get search suggestions based on user input or default suggestions
+      description: Retrieve intelligent search suggestions to help users discover relevant content. Returns default suggestions if no query provided.
       security:
         - bearerAuth: []
       parameters:
         - name: q
           in: query
-          required: true
+          required: false
           schema:
             type: string
-            minLength: 1
+            minLength: 0
             maxLength: 100
-          description: Partial search query for generating suggestions
+          description: Partial search query for generating suggestions (optional - returns default suggestions if empty)
           example: "lunch"
         - name: limit
           in: query
@@ -636,6 +874,107 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - Search
+      summary: Get search suggestions (POST version for web clients)
+      description: Same functionality as GET but via POST to potentially reduce OPTIONS preflight overhead in some scenarios
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                q:
+                  type: string
+                  minLength: 0
+                  maxLength: 100
+                  description: Partial search query for generating suggestions (optional)
+                  example: "lunch"
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+                  default: 5
+                  description: Maximum number of suggestions to return
+      responses:
+        '200':
+          description: List of search suggestions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SearchSuggestion'
+        '400':
+          description: Invalid suggestion parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /search/suggestions/click:
+    post:
+      tags:
+        - Search
+      summary: Track when a user clicks on a search suggestion
+      description: Record user interaction with search suggestions for analytics and improving suggestion quality
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClickTrackingRequest'
+      responses:
+        '200':
+          description: Suggestion click tracked successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: "Suggestion click tracked successfully"
+        '400':
+          description: Invalid click tracking parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Click tracking service error
           content:
             application/json:
               schema:
@@ -770,6 +1109,76 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Bulk indexing service error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /search/performance:
+    get:
+      tags:
+        - Search
+      summary: Get search service performance statistics
+      description: Retrieve real-time performance metrics for the search service including response times, cache hit rates, and optimization status
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Search service performance statistics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          totalRequests:
+                            type: integer
+                            description: Total number of search requests processed
+                            example: 1524
+                          avgResponseTime:
+                            type: number
+                            format: float
+                            description: Average response time in milliseconds
+                            example: 8.5
+                          cacheHits:
+                            type: integer
+                            description: Number of requests served from cache
+                            example: 1234
+                          cacheHitRate:
+                            type: number
+                            format: float
+                            description: Cache hit rate as a percentage
+                            example: 81.0
+                          cacheSize:
+                            type: integer
+                            description: Current number of items in cache
+                            example: 156
+                          target:
+                            type: string
+                            description: Target response time for performance
+                            example: "10ms"
+                          status:
+                            type: string
+                            enum: [OPTIMAL, ACCEPTABLE, NEEDS_OPTIMIZATION]
+                            description: Current performance status
+                            example: "OPTIMAL"
+                          lastReset:
+                            type: string
+                            format: date-time
+                            description: Timestamp when performance stats were last reset
+                            example: "2024-01-15T10:30:00Z"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Performance service error
           content:
             application/json:
               schema:

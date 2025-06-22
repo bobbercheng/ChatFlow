@@ -7,6 +7,48 @@ import { conversationService } from '../../../services/conversation.service';
 
 const router = Router();
 
+/**
+ * @swagger
+ * /v1/conversations:
+ *   get:
+ *     summary: Get user's conversations
+ *     tags: [Conversations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: page
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *       - name: limit
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Conversations retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       allOf:
+ *                         - $ref: '#/components/schemas/PaginationResult'
+ *                         - type: object
+ *                           properties:
+ *                             data:
+ *                               type: array
+ *                               items:
+ *                                 $ref: '#/components/schemas/Conversation'
+ */
 // GET /v1/conversations
 router.get('/',
   authenticateToken,
@@ -35,6 +77,33 @@ router.get('/',
   })
 );
 
+/**
+ * @swagger
+ * /v1/conversations:
+ *   post:
+ *     summary: Create a new conversation
+ *     tags: [Conversations]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateConversationRequest'
+ *     responses:
+ *       201:
+ *         description: Conversation created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/Conversation'
+ */
 // POST /v1/conversations
 router.post('/',
   authenticateToken,

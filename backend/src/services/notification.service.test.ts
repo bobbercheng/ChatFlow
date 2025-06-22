@@ -74,7 +74,9 @@ describe('NotificationServicePubSub', () => {
   describe('handleNewMessage', () => {
           const mockMessage = {
         id: 'msg-123',
+        conversationId: 'conv-456',
         senderId: 'sender@test.com',
+        senderDisplayName: 'Sender User',
         content: 'Hello world',
         messageType: MessageType.TEXT,
         createdAt: new Date(),
@@ -316,7 +318,9 @@ describe('NotificationServicePubSub', () => {
          test('should handle Firestore adapter errors gracefully', async () => {
        const mockMessage = {
          id: 'msg-error',
+         conversationId: 'conv-123',
          senderId: 'sender@test.com',
+         senderDisplayName: 'Sender User',
          content: 'Test',
          messageType: MessageType.TEXT,
          createdAt: new Date(),
@@ -332,7 +336,9 @@ describe('NotificationServicePubSub', () => {
          test('should handle Pub/Sub adapter errors gracefully', async () => {
        const mockMessage = {
          id: 'msg-error',
+         conversationId: 'conv-123',
          senderId: 'sender@test.com',
+         senderDisplayName: 'Sender User',
          content: 'Test',
          messageType: MessageType.TEXT,
          createdAt: new Date(),

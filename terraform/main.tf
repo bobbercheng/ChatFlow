@@ -255,6 +255,202 @@ resource "google_cloud_run_v2_service" "chatflow_backend" {
         value = var.cors_origin
       }
 
+      # Search Service Configuration
+      env {
+        name  = "SEARCH_CACHE_TTL"
+        value = tostring(var.search_cache_ttl)
+      }
+
+      env {
+        name  = "SEARCH_CACHE_MAX_SIZE"
+        value = tostring(var.search_cache_max_size)
+      }
+
+      env {
+        name  = "SEARCH_RECENT_QUERIES_WINDOW"
+        value = tostring(var.search_recent_queries_window)
+      }
+
+      env {
+        name  = "SEARCH_TRENDING_TOPICS_WINDOW"
+        value = tostring(var.search_trending_topics_window)
+      }
+
+      env {
+        name  = "SEARCH_TRENDING_KEYWORDS_WINDOW"
+        value = tostring(var.search_trending_keywords_window)
+      }
+
+      env {
+        name  = "SEARCH_COMPLETIONS_RECENT_WINDOW"
+        value = tostring(var.search_completions_recent_window)
+      }
+
+      env {
+        name  = "SEARCH_INDEX_MESSAGES_LIMIT"
+        value = tostring(var.search_index_messages_limit)
+      }
+
+      env {
+        name  = "SEARCH_CONVERSATIONS_LIMIT"
+        value = tostring(var.search_conversations_limit)
+      }
+
+      env {
+        name  = "SEARCH_RECENT_CONVERSATIONS_LIMIT"
+        value = tostring(var.search_recent_conversations_limit)
+      }
+
+      env {
+        name  = "SEARCH_POPULAR_QUERIES_LIMIT"
+        value = tostring(var.search_popular_queries_limit)
+      }
+
+      env {
+        name  = "SEARCH_RECENT_QUERIES_LIMIT"
+        value = tostring(var.search_recent_queries_limit)
+      }
+
+      env {
+        name  = "SEARCH_TERMS_LIMIT"
+        value = tostring(var.search_terms_limit)
+      }
+
+      env {
+        name  = "SEARCH_SUGGESTIONS_COMPLETIONS_PERCENT"
+        value = tostring(var.search_suggestions_completions_percent)
+      }
+
+      env {
+        name  = "SEARCH_SUGGESTIONS_USER_KEYWORDS_PERCENT"
+        value = tostring(var.search_suggestions_user_keywords_percent)
+      }
+
+      env {
+        name  = "SEARCH_SUGGESTIONS_PARTICIPANTS_PERCENT"
+        value = tostring(var.search_suggestions_participants_percent)
+      }
+
+      env {
+        name  = "SEARCH_SUGGESTIONS_TRENDING_PERCENT"
+        value = tostring(var.search_suggestions_trending_percent)
+      }
+
+      env {
+        name  = "SEARCH_DEFAULT_RECENT_QUERIES_PERCENT"
+        value = tostring(var.search_default_recent_queries_percent)
+      }
+
+      env {
+        name  = "SEARCH_DEFAULT_POPULAR_TOPICS_PERCENT"
+        value = tostring(var.search_default_popular_topics_percent)
+      }
+
+      env {
+        name  = "SEARCH_DEFAULT_RECENT_PARTICIPANTS_PERCENT"
+        value = tostring(var.search_default_recent_participants_percent)
+      }
+
+      env {
+        name  = "SEARCH_DEFAULT_TRENDING_TOPICS_PERCENT"
+        value = tostring(var.search_default_trending_topics_percent)
+      }
+
+      env {
+        name  = "SEARCH_POPULAR_TOPICS_MIN_COUNT"
+        value = tostring(var.search_popular_topics_min_count)
+      }
+
+      env {
+        name  = "SEARCH_TRENDING_TOPICS_MIN_FREQUENCY"
+        value = tostring(var.search_trending_topics_min_frequency)
+      }
+
+      env {
+        name  = "SEARCH_TRENDING_KEYWORDS_MIN_FREQUENCY"
+        value = tostring(var.search_trending_keywords_min_frequency)
+      }
+
+      env {
+        name  = "SEARCH_MIN_QUERY_LENGTH"
+        value = tostring(var.search_min_query_length)
+      }
+
+      env {
+        name  = "SEARCH_MIN_KEYWORD_LENGTH"
+        value = tostring(var.search_min_keyword_length)
+      }
+
+      env {
+        name  = "SEARCH_MIN_LONG_KEYWORD_LENGTH"
+        value = tostring(var.search_min_long_keyword_length)
+      }
+
+      env {
+        name  = "SEARCH_MIN_SUCCESS_RATE"
+        value = tostring(var.search_min_success_rate)
+      }
+
+      env {
+        name  = "SEARCH_DEFAULT_LIMIT"
+        value = tostring(var.search_default_limit)
+      }
+
+      env {
+        name  = "SEARCH_MAX_RESULTS"
+        value = tostring(var.search_max_results)
+      }
+
+      env {
+        name  = "SEARCH_MESSAGES_PER_CONVERSATION"
+        value = tostring(var.search_messages_per_conversation)
+      }
+
+      env {
+        name  = "SEARCH_COMPLETION_TYPE_BOOST"
+        value = tostring(var.search_completion_type_boost)
+      }
+
+      env {
+        name  = "SEARCH_POPULAR_TYPE_BOOST"
+        value = tostring(var.search_popular_type_boost)
+      }
+
+      env {
+        name  = "SEARCH_RECENT_TYPE_BOOST"
+        value = tostring(var.search_recent_type_boost)
+      }
+
+      env {
+        name  = "SEARCH_PARTICIPANT_TYPE_BOOST"
+        value = tostring(var.search_participant_type_boost)
+      }
+
+      env {
+        name  = "SEARCH_TOPIC_TYPE_BOOST"
+        value = tostring(var.search_topic_type_boost)
+      }
+
+      env {
+        name  = "SEARCH_PERSON_TYPE_BOOST"
+        value = tostring(var.search_person_type_boost)
+      }
+
+      env {
+        name  = "SEARCH_TRENDING_TYPE_BOOST"
+        value = tostring(var.search_trending_type_boost)
+      }
+
+      env {
+        name  = "SEARCH_PREFIX_MATCH_BOOST"
+        value = tostring(var.search_prefix_match_boost)
+      }
+
+      env {
+        name  = "SEARCH_RECENT_QUERY_BOOST"
+        value = tostring(var.search_recent_query_boost)
+      }
+
       # Liveness probe
       liveness_probe {
         http_get {

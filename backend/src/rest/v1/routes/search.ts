@@ -33,6 +33,34 @@ const router = express.Router();
  *     responses:
  *       200:
  *         description: Search results with semantic relevance
+ *   post:
+ *     summary: Search conversations (POST version for web clients)
+ *     description: Same functionality as GET but via POST to potentially reduce OPTIONS preflight overhead in some scenarios
+ *     tags: [Search]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - q
+ *             properties:
+ *               q:
+ *                 type: string
+ *                 description: Search query (supports natural language)
+ *                 example: "lunch plans with Sarah"
+ *               limit:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 50
+ *                 default: 20
+ *                 description: Maximum number of results
+ *     responses:
+ *       200:
+ *         description: Search results with semantic relevance
  */
 router.get('/conversations', 
   authenticateToken,
@@ -74,18 +102,125 @@ router.get('/conversations',
       
       const searchTime = Date.now() - startTime;
 
+      // Ensure results is an array
+      const searchResults = Array.isArray(results) ? results : [];
+
       return res.json({
         success: true,
         data: {
-          results,
+          results: searchResults,
           query: searchQuery.query,
-          totalResults: results.length,
+          totalResults: searchResults.length,
           searchTime,
         },
       });
 
     } catch (error) {
-      console.error('Search error:', error);
+      // Only log in non-test environments to reduce test output verbosity
+      if (process.env['NODE_ENV'] !== 'test') {
+        console.error('Search error:', error);
+      }
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: 'Search failed',
+        }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /v1/search/conversations:
+ *   post:
+ *     summary: Search conversations (POST version for web clients)
+ *     description: Same functionality as GET but via POST to potentially reduce OPTIONS preflight overhead in some scenarios
+ *     tags: [Search]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - q
+ *             properties:
+ *               q:
+ *                 type: string
+ *                 description: Search query (supports natural language)
+ *                 example: "lunch plans with Sarah"
+ *               limit:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 50
+ *                 default: 20
+ *                 description: Maximum number of results
+ *     responses:
+ *       200:
+ *         description: Search results with semantic relevance
+ */
+// POST version of conversations search endpoint for web clients
+router.post('/conversations', 
+  authenticateToken,
+  [
+    body('q')
+      .notEmpty()
+      .isLength({ min: 1, max: 500 })
+      .withMessage('Query must be between 1 and 500 characters'),
+    body('limit')
+      .optional()
+      .isInt({ min: 1, max: 50 })
+      .withMessage('Limit must be between 1 and 50'),
+  ],
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'Validation failed',
+            details: errors.array()
+          }
+        });
+      }
+
+      const startTime = Date.now();
+      const userId = req.user!.email;
+      
+      // Build search query
+      const searchQuery: SearchQuery = {
+        query: req.body.q,
+        userId,
+        limit: req.body.limit || 20,
+      };
+
+      // Execute semantic search
+      const results = await searchService.semanticSearch(searchQuery);
+      
+      const searchTime = Date.now() - startTime;
+
+      // Ensure results is an array
+      const searchResults = Array.isArray(results) ? results : [];
+
+      return res.json({
+        success: true,
+        data: {
+          results: searchResults,
+          query: searchQuery.query,
+          totalResults: searchResults.length,
+          searchTime,
+        },
+      });
+
+    } catch (error) {
+      // Only log in non-test environments to reduce test output verbosity
+      if (process.env['NODE_ENV'] !== 'test') {
+        console.error('Search error:', error);
+      }
       return res.status(500).json({
         success: false,
         error: {
@@ -100,17 +235,17 @@ router.get('/conversations',
  * @swagger
  * /v1/search/suggestions:
  *   get:
- *     summary: Get search suggestions based on user input
+ *     summary: Get search suggestions based on user input or default suggestions
  *     tags: [Search]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: q
- *         required: true
+ *         required: false
  *         schema:
  *           type: string
- *         description: Partial search query
+ *         description: Partial search query (optional - returns default suggestions if empty)
  *         example: "lunch"
  *       - in: query
  *         name: limit
@@ -121,13 +256,37 @@ router.get('/conversations',
  *     responses:
  *       200:
  *         description: Search suggestions
+ *   post:
+ *     summary: Get search suggestions (POST version for web clients)
+ *     description: Same functionality as GET but via POST to potentially reduce OPTIONS preflight overhead in some scenarios
+ *     tags: [Search]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               q:
+ *                 type: string
+ *                 description: Partial search query (optional)
+ *                 example: "lunch"
+ *               limit:
+ *                 type: integer
+ *                 default: 5
+ *                 description: Maximum number of suggestions
+ *     responses:
+ *       200:
+ *         description: Search suggestions
  */
 router.get('/suggestions',
   authenticateToken,
   [
     query('q')
-      .notEmpty()
-      .isLength({ min: 1, max: 100 })
+      .optional()
+      .isLength({ min: 0, max: 100 })
       .withMessage('Query must be between 1 and 100 characters'),
     query('limit')
       .optional()
@@ -147,7 +306,7 @@ router.get('/suggestions',
         });
       }
 
-      const query = req.query['q'] as string;
+      const query = (req.query['q'] as string) || '';
       const limit = parseInt(req.query['limit'] as string) || 5;
       const userId = req.user!.email;
 
@@ -165,7 +324,96 @@ router.get('/suggestions',
       });
 
     } catch (error) {
-      console.error('Suggestions error:', error);
+      // Only log in non-test environments to reduce test output verbosity
+      if (process.env['NODE_ENV'] !== 'test') {
+        console.error('Suggestions error:', error);
+      }
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: 'Failed to generate suggestions'
+        }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /v1/search/suggestions:
+ *   post:
+ *     summary: Get search suggestions (POST version for web clients)
+ *     description: Same functionality as GET but via POST to potentially reduce OPTIONS preflight overhead in some scenarios
+ *     tags: [Search]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               q:
+ *                 type: string
+ *                 description: Partial search query (optional)
+ *                 example: "lunch"
+ *               limit:
+ *                 type: integer
+ *                 default: 5
+ *                 description: Maximum number of suggestions
+ *     responses:
+ *       200:
+ *         description: Search suggestions
+ */
+// POST version of suggestions endpoint for web clients
+router.post('/suggestions',
+  authenticateToken,
+  [
+    body('q')
+      .optional()
+      .isLength({ min: 0, max: 100 })
+      .withMessage('Query must be between 1 and 100 characters'),
+    body('limit')
+      .optional()
+      .isInt({ min: 1, max: 10 })
+      .withMessage('Limit must be between 1 and 10'),
+  ],
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'Validation failed',
+            details: errors.array()
+          }
+        });
+      }
+
+      const query = req.body.q || '';
+      const limit = req.body.limit || 5;
+      const userId = req.user!.email;
+
+      // Get intelligent suggestions using the search service
+      const suggestions = await searchService.getSuggestions(query, userId, limit);
+
+      return res.json({
+        success: true,
+        data: suggestions.map(s => ({
+          suggestion: s.text,
+          type: s.type,
+          count: s.frequency || 1,
+          category: s.category,
+        })),
+      });
+
+    } catch (error) {
+      // Only log in non-test environments to reduce test output verbosity
+      if (process.env['NODE_ENV'] !== 'test') {
+        console.error('Suggestions error:', error);
+      }
       return res.status(500).json({
         success: false,
         error: {
@@ -242,7 +490,10 @@ router.post('/index-all',
       const userEmail = req.user!.email;
       const userOnly = req.query['userOnly'] !== 'false'; // Default to true
       
-      console.log(`Starting bulk indexing for ${userOnly ? userEmail : 'all users'}`);
+      // Only log in non-test environments to reduce test output verbosity
+      if (process.env['NODE_ENV'] !== 'test') {
+        console.log(`Starting bulk indexing for ${userOnly ? userEmail : 'all users'}`);
+      }
 
       // Execute bulk indexing
       const result = await searchService.indexAllMessages(userOnly ? userEmail : undefined);
@@ -259,7 +510,10 @@ router.post('/index-all',
       });
 
     } catch (error) {
-      console.error('Bulk indexing error:', error);
+      // Only log in non-test environments to reduce test output verbosity
+      if (process.env['NODE_ENV'] !== 'test') {
+        console.error('Bulk indexing error:', error);
+      }
       return res.status(500).json({
         success: false,
         error: {
@@ -275,7 +529,8 @@ router.post('/index-all',
  * @swagger
  * /v1/search/suggestions/click:
  *   post:
- *     summary: Track when a user clicks on a suggestion
+ *     summary: Track when a user clicks on a search suggestion
+ *     description: Record user interaction with search suggestions for analytics and improving suggestion quality
  *     tags: [Search]
  *     security:
  *       - bearerAuth: []
@@ -284,20 +539,41 @@ router.post('/index-all',
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               query:
- *                 type: string
- *                 description: Original search query
- *               suggestionText:
- *                 type: string
- *                 description: The suggestion that was clicked
- *               suggestionType:
- *                 type: string
- *                 description: Type of suggestion (completion, popular, trending, etc.)
+ *             $ref: '#/components/schemas/ClickTrackingRequest'
  *     responses:
  *       200:
- *         description: Click tracked successfully
+ *         description: Suggestion click tracked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         message:
+ *                           type: string
+ *                           example: "Suggestion click tracked successfully"
+ *       400:
+ *         description: Invalid click tracking parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Click tracking service error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/suggestions/click',
   authenticateToken,
@@ -339,7 +615,10 @@ router.post('/suggestions/click',
       });
 
     } catch (error) {
-      console.error('Suggestion click tracking error:', error);
+      // Only log in non-test environments to reduce test output verbosity
+      if (process.env['NODE_ENV'] !== 'test') {
+        console.error('Suggestion click tracking error:', error);
+      }
       return res.status(500).json({
         success: false,
         error: {
@@ -412,11 +691,79 @@ router.post('/index',
       });
 
     } catch (error) {
-      console.error('Manual indexing error:', error);
+      // Only log in non-test environments to reduce test output verbosity
+      if (process.env['NODE_ENV'] !== 'test') {
+        console.error('Manual indexing error:', error);
+      }
       return res.status(500).json({
         success: false,
         error: {
           message: 'Failed to index message'
+        }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /v1/search/performance:
+ *   get:
+ *     summary: Get search performance statistics
+ *     tags: [Search]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Performance statistics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     avgResponseTime:
+ *                       type: number
+ *                       description: Average response time in milliseconds
+ *                     cacheHitRate:
+ *                       type: number
+ *                       description: Cache hit rate percentage
+ *                     totalRequests:
+ *                       type: integer
+ *                       description: Total number of requests processed
+ *                     cacheHits:
+ *                       type: integer
+ *                       description: Number of cache hits
+ */
+router.get('/performance',
+  authenticateToken,
+  async (_req: AuthenticatedRequest, res: Response) => {
+    try {
+      // Get performance stats from the search service
+      const stats = searchService.getPerformanceStats();
+      
+      return res.json({
+        success: true,
+        data: {
+          ...stats,
+          target: '10ms',
+          status: stats.avgResponseTime <= 10 ? 'OPTIMAL' : stats.avgResponseTime <= 50 ? 'ACCEPTABLE' : 'NEEDS_OPTIMIZATION'
+        }
+      });
+
+    } catch (error) {
+      // Only log in non-test environments to reduce test output verbosity
+      if (process.env['NODE_ENV'] !== 'test') {
+        console.error('Performance stats error:', error);
+      }
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: 'Failed to get performance statistics'
         }
       });
     }

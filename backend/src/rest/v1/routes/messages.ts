@@ -7,6 +7,56 @@ import { messageService } from '../../../services/message.service';
 
 const router = Router();
 
+/**
+ * @swagger
+ * /v1/conversations/{conversationId}/messages:
+ *   get:
+ *     summary: Get messages in a conversation
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: conversationId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^conv_[0-9]+_[a-z0-9]+$'
+ *           description: 'Conversation ID in format: conv_{timestamp}_{randomString}'
+ *           example: 'conv_1750386041311_fpmswok2p'
+ *       - name: page
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *       - name: limit
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Messages retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       allOf:
+ *                         - $ref: '#/components/schemas/PaginationResult'
+ *                         - type: object
+ *                           properties:
+ *                             data:
+ *                               type: array
+ *                               items:
+ *                                 $ref: '#/components/schemas/Message'
+ */
 // GET /v1/conversations/:conversationId/messages
 router.get('/:conversationId/messages',
   authenticateToken,
@@ -39,6 +89,42 @@ router.get('/:conversationId/messages',
   })
 );
 
+/**
+ * @swagger
+ * /v1/conversations/{conversationId}/messages:
+ *   post:
+ *     summary: Send a message to a conversation
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: conversationId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^conv_[0-9]+_[a-z0-9]+$'
+ *           description: 'Conversation ID in format: conv_{timestamp}_{randomString}'
+ *           example: 'conv_1750386041311_fpmswok2p'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateMessageRequest'
+ *     responses:
+ *       201:
+ *         description: Message sent
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/Message'
+ */
 // POST /v1/conversations/:conversationId/messages
 router.post('/:conversationId/messages',
   authenticateToken,
@@ -74,6 +160,56 @@ router.post('/:conversationId/messages',
   })
 );
 
+/**
+ * @swagger
+ * /v1/conversations/{conversationId}/messages/{messageId}:
+ *   get:
+ *     summary: Get a specific message in a conversation
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: conversationId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^conv_[0-9]+_[a-z0-9]+$'
+ *           description: 'Conversation ID in format: conv_{timestamp}_{randomString}'
+ *           example: 'conv_1750386041311_fpmswok2p'
+ *       - name: messageId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^msg_[0-9]+_[a-z0-9]+$'
+ *           description: 'Message ID in format: msg_{timestamp}_{randomString}'
+ *           example: 'msg_1750386041311_abc123def'
+ *     responses:
+ *       200:
+ *         description: Message retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/Message'
+ *       404:
+ *         description: Message not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // GET /v1/conversations/:conversationId/messages/:messageId
 router.get('/:conversationId/messages/:messageId',
   authenticateToken,
@@ -110,6 +246,68 @@ router.get('/:conversationId/messages/:messageId',
   })
 );
 
+/**
+ * @swagger
+ * /v1/conversations/{conversationId}/messages/{messageId}:
+ *   put:
+ *     summary: Update a specific message in a conversation
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: conversationId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^conv_[0-9]+_[a-z0-9]+$'
+ *           description: 'Conversation ID in format: conv_{timestamp}_{randomString}'
+ *           example: 'conv_1750386041311_fpmswok2p'
+ *       - name: messageId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^msg_[0-9]+_[a-z0-9]+$'
+ *           description: 'Message ID in format: msg_{timestamp}_{randomString}'
+ *           example: 'msg_1750386041311_abc123def'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateMessageRequest'
+ *     responses:
+ *       200:
+ *         description: Message updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/Message'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: Message not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // PUT /v1/conversations/:conversationId/messages/:messageId  
 router.put('/:conversationId/messages/:messageId',
   authenticateToken,
@@ -140,6 +338,47 @@ router.put('/:conversationId/messages/:messageId',
   })
 );
 
+/**
+ * @swagger
+ * /v1/conversations/{conversationId}/messages/{messageId}:
+ *   delete:
+ *     summary: Delete a specific message in a conversation
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: conversationId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^conv_[0-9]+_[a-z0-9]+$'
+ *           description: 'Conversation ID in format: conv_{timestamp}_{randomString}'
+ *           example: 'conv_1750386041311_fpmswok2p'
+ *       - name: messageId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^msg_[0-9]+_[a-z0-9]+$'
+ *           description: 'Message ID in format: msg_{timestamp}_{randomString}'
+ *           example: 'msg_1750386041311_abc123def'
+ *     responses:
+ *       204:
+ *         description: Message deleted successfully
+ *       404:
+ *         description: Message not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // DELETE /v1/conversations/:conversationId/messages/:messageId
 router.delete('/:conversationId/messages/:messageId',
   authenticateToken,

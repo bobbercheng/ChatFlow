@@ -32,11 +32,13 @@ export class SearchComponent {
   private currentQuery: string = '';
   private debounceTimeout: number | null = null;
   private isSearching: boolean = false;
+  private defaultSuggestions: SearchSuggestion[] = [];
 
   constructor(container: HTMLElement) {
     this.container = container;
     this.render();
     this.attachEventListeners();
+    this.loadDefaultSuggestions();
   }
 
   private render(): void {
@@ -62,7 +64,7 @@ export class SearchComponent {
             <input
               type="text"
               class="search-input"
-              placeholder="Search conversations... (e.g., 'lunch plans with Sarah')"
+              placeholder="Search conversations..."
               maxlength="500"
             />
             <button class="search-button" type="button">
@@ -112,15 +114,12 @@ export class SearchComponent {
               <h3 class="empty-state-title">Start Searching</h3>
               <p class="empty-state-description">
                 Use natural language to find conversations and messages.<br>
-                Try searches like "meeting notes", "project updates", or "messages from John".
+                Try any of the recommended searches below to get started.
               </p>
               <div class="empty-state-examples">
-                <p class="examples-title">Example searches:</p>
+                <p class="examples-title">Recommended searches:</p>
                 <div class="examples-list">
-                  <button class="example-button" data-query="lunch plans">🍽️ lunch plans</button>
-                  <button class="example-button" data-query="project deadline">📅 project deadline</button>
-                  <button class="example-button" data-query="meeting today">📅 meeting today</button>
-                  <button class="example-button" data-query="document shared">📄 document shared</button>
+                  <!-- Dynamic suggestions will be loaded here -->
                 </div>
               </div>
             </div>
@@ -147,8 +146,52 @@ export class SearchComponent {
     // Search button
     this.searchButton.addEventListener('click', this.handleSearch.bind(this));
 
-    // Example query buttons
-    const exampleButtons = this.container.querySelectorAll('.example-button');
+    // Click outside to close suggestions
+    document.addEventListener('click', (e) => {
+      if (!this.container.contains(e.target as Node)) {
+        this.hideSuggestions();
+      }
+    });
+  }
+
+  private async loadDefaultSuggestions(): Promise<void> {
+    try {
+      // Fetch default suggestions (empty query)
+      const response = await apiService.getSearchSuggestions('', 6);
+      
+      if (response.success && response.data.length > 0) {
+        this.defaultSuggestions = response.data;
+        this.updateRecommendedSearches();
+        this.updateSearchPlaceholder();
+      }
+    } catch (error) {
+      console.error('Failed to load default suggestions:', error);
+      // Fall back to hardcoded suggestions if API fails
+      this.defaultSuggestions = [
+        { suggestion: 'lunch plans', type: 'topic', count: 5 },
+        { suggestion: 'project deadline', type: 'topic', count: 3 },
+        { suggestion: 'meeting today', type: 'topic', count: 7 },
+        { suggestion: 'document shared', type: 'topic', count: 2 }
+      ];
+      this.updateRecommendedSearches();
+      this.updateSearchPlaceholder();
+    }
+  }
+
+  private updateRecommendedSearches(): void {
+    const examplesList = this.container.querySelector('.examples-list') as HTMLElement;
+    if (!examplesList) return;
+
+    // Use first 4 suggestions for recommended searches
+    const suggestionsToShow = this.defaultSuggestions.slice(0, 4);
+    
+    examplesList.innerHTML = suggestionsToShow.map(suggestion => {
+      const emoji = this.getSuggestionEmoji(suggestion.suggestion);
+      return `<button class="example-button" data-query="${this.escapeHtml(suggestion.suggestion)}">${emoji} ${this.escapeHtml(suggestion.suggestion)}</button>`;
+    }).join('');
+
+    // Add click handlers to the new buttons
+    const exampleButtons = examplesList.querySelectorAll('.example-button');
     exampleButtons.forEach(button => {
       button.addEventListener('click', (e) => {
         const query = (e.target as HTMLElement).dataset.query;
@@ -158,13 +201,29 @@ export class SearchComponent {
         }
       });
     });
+  }
 
-    // Click outside to close suggestions
-    document.addEventListener('click', (e) => {
-      if (!this.container.contains(e.target as Node)) {
-        this.hideSuggestions();
-      }
-    });
+  private updateSearchPlaceholder(): void {
+    if (this.defaultSuggestions.length > 0) {
+      // Randomly pick one suggestion for the placeholder
+      const randomSuggestion = this.defaultSuggestions[Math.floor(Math.random() * this.defaultSuggestions.length)];
+      this.searchInput.placeholder = `Search conversations... (e.g., '${randomSuggestion.suggestion}')`;
+    }
+  }
+
+  private getSuggestionEmoji(suggestion: string): string {
+    const lower = suggestion.toLowerCase();
+    if (lower.includes('lunch') || lower.includes('food') || lower.includes('dinner') || lower.includes('breakfast')) return '🍽️';
+    if (lower.includes('meeting') || lower.includes('schedule') || lower.includes('calendar')) return '📅';
+    if (lower.includes('project') || lower.includes('deadline') || lower.includes('task')) return '📊';
+    if (lower.includes('document') || lower.includes('file') || lower.includes('share')) return '📄';
+    if (lower.includes('message') || lower.includes('chat') || lower.includes('talk')) return '💬';
+    if (lower.includes('call') || lower.includes('phone')) return '📞';
+    if (lower.includes('email')) return '📧';
+    if (lower.includes('note') || lower.includes('reminder')) return '📝';
+    if (lower.includes('photo') || lower.includes('image')) return '📷';
+    if (lower.includes('video')) return '🎥';
+    return '🔍'; // Default search icon
   }
 
   private handleInputChange(): void {
@@ -176,14 +235,10 @@ export class SearchComponent {
       clearTimeout(this.debounceTimeout);
     }
 
-    if (query.length >= 2) {
-      // Debounce suggestions
-      this.debounceTimeout = window.setTimeout(() => {
-        this.fetchSuggestions(query);
-      }, 300);
-    } else {
-      this.hideSuggestions();
-    }
+    // Always fetch suggestions (including default suggestions for empty query)
+    this.debounceTimeout = window.setTimeout(() => {
+      this.fetchSuggestions(query);
+    }, 300);
   }
 
   private handleKeyDown(e: KeyboardEvent): void {
@@ -196,9 +251,8 @@ export class SearchComponent {
   }
 
   private handleInputFocus(): void {
-    if (this.currentQuery.length >= 2) {
-      this.showSuggestions();
-    }
+    // Always fetch and show suggestions on focus (including default suggestions)
+    this.fetchSuggestions(this.currentQuery);
   }
 
   private handleInputBlur(): void {
@@ -278,13 +332,17 @@ export class SearchComponent {
         const suggestionType = item.querySelector('.suggestion-type')?.textContent;
         
         if (suggestion) {
-          // Track suggestion click for analytics
-          try {
-            await apiService.trackSuggestionClick(this.currentQuery, suggestion, suggestionType || 'unknown');
-            console.log('✅ Suggestion click tracked:', { query: this.currentQuery, suggestion, type: suggestionType });
-          } catch (error) {
-            console.error('Failed to track suggestion click:', error);
-            // Continue with search even if tracking fails
+          // Only track suggestion click for analytics if there was a search query
+          if (this.currentQuery && this.currentQuery.trim().length > 0) {
+            try {
+              await apiService.trackSuggestionClick(this.currentQuery, suggestion, suggestionType || 'unknown');
+              console.log('✅ Suggestion click tracked:', { query: this.currentQuery, suggestion, type: suggestionType });
+            } catch (error) {
+              console.error('Failed to track suggestion click:', error);
+              // Continue with search even if tracking fails
+            }
+          } else {
+            console.log('🔍 Default suggestion selected (no tracking):', { suggestion, type: suggestionType });
           }
           
           this.searchInput.value = suggestion;

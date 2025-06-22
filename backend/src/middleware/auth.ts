@@ -20,7 +20,17 @@ export const authenticateToken = (
   next: NextFunction
 ): void => {
   const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  
+  if (!authHeader) {
+    throw new HttpError(401, 'Access token required', 'TOKEN_REQUIRED');
+  }
+
+  // Validate Bearer prefix and extract token
+  if (!authHeader.startsWith('Bearer ')) {
+    throw new HttpError(401, 'Invalid token format', 'TOKEN_INVALID');
+  }
+
+  const token = authHeader.substring(7); // Remove "Bearer " prefix
 
   if (!token) {
     throw new HttpError(401, 'Access token required', 'TOKEN_REQUIRED');

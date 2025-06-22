@@ -30,14 +30,16 @@ export const errorHandler = (
   const message = error.message || 'Internal Server Error';
   const code = error.code || 'INTERNAL_ERROR';
 
-  // Log error for debugging
-  console.error(`[${new Date().toISOString()}] ${req.method} ${req.path}:`, {
-    statusCode,
-    message,
-    code,
-    details: error.details,
-    stack: process.env['NODE_ENV'] === 'development' ? error.stack : undefined,
-  });
+  // Log error for debugging - only in non-test environments to reduce test output verbosity
+  if (process.env['NODE_ENV'] !== 'test') {
+    console.error(`[${new Date().toISOString()}] ${req.method} ${req.path}:`, {
+      statusCode,
+      message,
+      code,
+      details: error.details,
+      stack: process.env['NODE_ENV'] === 'development' ? error.stack : undefined,
+    });
+  }
 
   res.status(statusCode).json({
     success: false,

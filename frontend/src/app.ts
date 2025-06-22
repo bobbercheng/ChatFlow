@@ -1,22 +1,20 @@
 import { apiService } from './services/apiService.js';
 import { websocketService } from './services/websocketService.js';
-import { User, Message, WebSocketEvent } from './types/index.js';
+import { User, Message, WebSocketEvent, SearchResult } from './types/index.js';
 import { config } from './config/environment.js';
 import { SearchComponent } from './modules/chatflow/app/components/SearchComponent.js';
 
-interface MessageDisplay extends Message {
+interface MessageDisplay {
+    id?: string;
+    conversationId?: string;
+    senderId?: string;
+    messageType?: 'TEXT' | 'IMAGE' | 'FILE';
+    content?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    senderDisplayName?: string; // Custom field for display
     cssClass: string;
     formattedTime: string;
-}
-
-interface SearchResult {
-  messageId: string;
-  conversationId: string;
-  content: string;
-  senderId: string;
-  senderDisplayName: string;
-  createdAt: string;
-  relevanceScore: number;
 }
 
 export class ChatFlowApp {
@@ -416,7 +414,7 @@ export class ChatFlowApp {
         const messageDisplay: MessageDisplay = {
             ...message,
             cssClass: this.getMessageCssClass(message),
-            formattedTime: this.formatTime(message.createdAt)
+            formattedTime: this.formatTime(message.createdAt || new Date().toISOString())
         };
 
         this.messages = [messageDisplay, ...this.messages];
@@ -471,7 +469,7 @@ export class ChatFlowApp {
                     <span class="sender">${message.senderDisplayName}</span>
                     <span class="timestamp">${message.formattedTime}</span>
                 </div>
-                <div class="message-content">${this.escapeHtml(message.content)}</div>
+                <div class="message-content">${this.escapeHtml(message.content || '')}</div>
             </div>
         `).join('');
 
@@ -535,21 +533,23 @@ export class ChatFlowApp {
         }
 
         const resultsHtml = results.map(result => {
-            const createdAt = new Date(result.createdAt);
+            const createdAt = new Date(result.createdAt || new Date().toISOString());
             const timeAgo = this.getTimeAgo(createdAt);
-            const relevancePercentage = Math.round(result.relevanceScore * 100);
+            const relevancePercentage = Math.round((result.relevanceScore || 0) * 100);
+            const content = result.content || '';
+            const senderName = result.senderId || 'Unknown';
             
             return `
-                <div class="search-result" onclick="window.chatApp?.navigateToConversation('${result.conversationId}')">
+                <div class="search-result" onclick="window.chatApp?.navigateToConversation('${result.conversationId || ''}')">
                     <div class="result-header">
-                        <strong>👤 ${this.escapeHtml(result.senderDisplayName)}</strong>
+                        <strong>👤 ${this.escapeHtml(senderName)}</strong>
                         <span class="time">🕒 ${timeAgo} • ⭐ ${relevancePercentage}% match</span>
                     </div>
                     <div class="result-content">
-                        ${this.escapeHtml(result.content.substring(0, 200))}${result.content.length > 200 ? '...' : ''}
+                        ${this.escapeHtml(content.substring(0, 200))}${content.length > 200 ? '...' : ''}
                     </div>
                     <div class="result-conversation">
-                        💬 Conversation: ${result.conversationId}
+                        💬 Conversation: ${result.conversationId || 'Unknown'}
                     </div>
                 </div>
             `;
@@ -616,7 +616,11 @@ export class ChatFlowApp {
                 });
 
                 // Sort by creation time (newest first for display)
-                this.messages.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                this.messages.sort((a, b) => {
+                    const dateA = new Date(a.createdAt || new Date().toISOString()).getTime();
+                    const dateB = new Date(b.createdAt || new Date().toISOString()).getTime();
+                    return dateB - dateA;
+                });
                 
                 this.updateMessagesDisplay('top'); // Scroll to top to show newest messages
                 
@@ -736,7 +740,7 @@ export class ChatFlowApp {
                     <div class="chat-container">
                         <div class="conversation-info">
                             <div class="conversation-id-input">
-                                <label for="conversationIdInput">🆔 Conversation ID:</label>
+                                <label for="conversationIdInput">Conversation ID:</label>
                                 <input id="conversationIdInput" type="text" value="${this.conversationId}" placeholder="Enter conversation ID or click from search results" />
                             </div>
                             <div class="connection-status">

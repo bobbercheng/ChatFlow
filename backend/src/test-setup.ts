@@ -69,9 +69,53 @@ const mockFirestoreAdapter = {
     return Promise.resolve({ id, ...data });
   }),
 
+  createWithAutoId: jest.fn().mockImplementation((_collection, data) => {
+    const id = `auto_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return Promise.resolve({ id, ...data });
+  }),
+
   findById: jest.fn().mockImplementation((collection, id) => {
     if (collection === 'users') {
       return Promise.resolve(mockUsers.find(u => u.email === id) || null);
+    }
+    if (collection === 'conversations') {
+      return Promise.resolve(mockConversation);
+    }
+    // Handle message subcollection queries
+    if (collection.includes('messages') && id === 'msg_1750386041311_abc123def') {
+      return Promise.resolve({
+        ...mockMessage,
+        id: 'msg_1750386041311_abc123def',
+        conversationId: 'conv_1750386041311_fpmswok2p',
+        senderDisplayName: 'Test User',
+      });
+    }
+    return Promise.resolve(null);
+  }),
+
+  find: jest.fn().mockImplementation((collection, options) => {
+    if (collection === 'users') {
+      return Promise.resolve(mockUsers);
+    }
+    if (collection === 'conversations') {
+      // Handle filtering for direct conversations
+      if (options?.filters) {
+        const typeFilter = options.filters.find((f: any) => f.field === 'type' && f.value === 'DIRECT');
+        const participantFilter = options.filters.find((f: any) => f.field === 'participantEmails' && f.operator === 'array-contains');
+        
+        if (typeFilter && participantFilter) {
+          // Return empty array to simulate no existing direct conversation
+          return Promise.resolve([]);
+        }
+      }
+      return Promise.resolve([mockConversation]);
+    }
+    return Promise.resolve([]);
+  }),
+
+  findOne: jest.fn().mockImplementation((collection, _options) => {
+    if (collection === 'users') {
+      return Promise.resolve(mockUsers[0] || null);
     }
     if (collection === 'conversations') {
       return Promise.resolve(mockConversation);
@@ -104,8 +148,15 @@ const mockFirestoreAdapter = {
       });
     }
     if (collection.includes('messages')) {
+      // Return the test message for the test conversation
+      const testMessage = {
+        ...mockMessage,
+        id: 'msg_1750386041311_abc123def',
+        conversationId: 'conv_1750386041311_fpmswok2p',
+        senderDisplayName: 'Test User',
+      };
       return Promise.resolve({
-        data: [mockMessage],
+        data: [testMessage],
         pagination: {
           page: options?.page || 1,
           limit: options?.limit || 20,
@@ -137,12 +188,38 @@ const mockFirestoreAdapter = {
     if (collection === 'conversations') {
       return Promise.resolve({ ...mockConversation, ...data });
     }
+    // Handle message updates
+    if (collection.includes('messages') && id === 'msg_1750386041311_abc123def') {
+      return Promise.resolve({
+        ...mockMessage,
+        id: 'msg_1750386041311_abc123def',
+        conversationId: 'conv_1750386041311_fpmswok2p',
+        senderDisplayName: 'Test User',
+        ...data,
+      });
+    }
     return Promise.resolve({ id, ...data });
   }),
 
-  delete: jest.fn().mockResolvedValue(true),
+  delete: jest.fn().mockImplementation((collection, id) => {
+    // Handle message deletions
+    if (collection.includes('messages') && id === 'msg_1750386041311_abc123def') {
+      return Promise.resolve(true);
+    }
+    return Promise.resolve(true);
+  }),
 
   // Query operations
+  count: jest.fn().mockImplementation((collection, _options) => {
+    if (collection === 'users') {
+      return Promise.resolve(mockUsers.length);
+    }
+    if (collection === 'conversations') {
+      return Promise.resolve(1);
+    }
+    return Promise.resolve(0);
+  }),
+
   findWhere: jest.fn().mockImplementation((collection, _filters) => {
     if (collection === 'conversations') {
       return Promise.resolve([mockConversation]);
@@ -211,29 +288,140 @@ const mockPubSubAdapter = {
 
 // Mock the adapters
 jest.mock('./database/adapters/firestore.adapter', () => ({
-  firestoreAdapter: mockFirestoreAdapter,
+  FirestoreAdapter: jest.fn().mockImplementation(() => mockFirestoreAdapter),
 }));
 
 jest.mock('./messaging/adapters/pubsub.adapter', () => ({
-  gcpPubSubAdapter: mockPubSubAdapter,
+  GcpPubSubAdapter: jest.fn().mockImplementation(() => mockPubSubAdapter),
+}));
+
+// Mock the main adapters module
+jest.mock('./adapters', () => ({
+  getDatabaseAdapter: jest.fn(() => mockFirestoreAdapter),
+  getMessagingAdapter: jest.fn(() => mockPubSubAdapter),
+  databaseAdapter: mockFirestoreAdapter,
+  messagingAdapter: mockPubSubAdapter,
+}));
+
+// Mock Search Service
+const mockSearchService = {
+  semanticSearch: jest.fn().mockResolvedValue([
+    {
+      messageId: 'msg-1',
+      conversationId: 'conv_1750455035529_abc123',
+      senderId: 'user1@example.com',
+      senderDisplayName: 'User One',
+      content: "Let's have lunch at the new restaurant",
+      highlightedContent: "Let's have **lunch** at the new **restaurant**",
+      relevanceScore: 0.95,
+      createdAt: new Date('2025-06-21T20:47:52.697Z'),
+      conversationContext: {
+        participantEmails: ['user1@example.com', 'user2@example.com'],
+        conversationType: 'DIRECT',
+        summary: 'Lunch discussion',
+      },
+    },
+    {
+      messageId: 'msg-2', 
+      conversationId: 'conv_1750455035530_def456',
+      senderId: 'user2@example.com',
+      senderDisplayName: 'User Two',
+      content: 'Great idea! What time works for lunch?',
+      highlightedContent: 'Great idea! What time works for **lunch**?',
+      relevanceScore: 0.87,
+      createdAt: new Date('2025-06-21T20:47:52.697Z'),
+      conversationContext: {
+        participantEmails: ['user1@example.com', 'user2@example.com'],
+        conversationType: 'DIRECT',
+        summary: 'Time coordination',
+      },
+    }
+  ]),
+  getSuggestions: jest.fn().mockResolvedValue([
+    { text: 'lunch', type: 'recent', frequency: 5 },
+    { text: 'meeting', type: 'popular', frequency: 3 },
+    { text: 'project', type: 'trending', frequency: 2 },
+  ]),
+  indexMessage: jest.fn().mockResolvedValue(undefined),
+  indexAllMessages: jest.fn().mockResolvedValue({
+    totalConversations: 10,
+    totalMessages: 50,
+    indexedMessages: 48,
+    errors: ['Error 1', 'Error 2'],
+    duration: 1500,
+  }),
+  trackSuggestionClick: jest.fn().mockResolvedValue(undefined),
+  trackSearchQuery: jest.fn().mockResolvedValue(undefined),
+};
+
+jest.mock('./services/search.service', () => ({
+  searchService: mockSearchService,
 }));
 
 // Mock WebSocket for testing
-jest.mock('ws', () => ({
-  WebSocket: jest.fn().mockImplementation(() => ({
-    send: jest.fn(),
-    close: jest.fn(),
-    on: jest.fn(),
-    off: jest.fn(),
-    readyState: 1, // OPEN
-  })),
-  WebSocketServer: jest.fn().mockImplementation(() => ({
-    on: jest.fn(),
-    close: jest.fn(),
-  })),
-}));
+class MockWebSocket {
+  constructor(url: string, options?: any) {
+    this.url = url;
+    this.options = options;
+    this.readyState = 1; // OPEN
+    // Simulate connection events
+    setTimeout(() => {
+      if (this.onopen) this.onopen({} as any);
+    }, 10);
+  }
+  
+  url: string;
+  options?: any;
+  readyState: number;
+  onopen?: (event: any) => void;
+  onclose?: (event: any) => void;
+  onmessage?: (event: any) => void;
+  onerror?: (event: any) => void;
+  
+  send = jest.fn();
+  close = jest.fn((code?: number, reason?: string) => {
+    setTimeout(() => {
+      if (this.onclose) this.onclose({ code, reason } as any);
+    }, 10);
+  });
+  
+  on = jest.fn((event: string, handler: Function) => {
+    if (event === 'open') this.onopen = handler as any;
+    if (event === 'close') this.onclose = handler as any;
+    if (event === 'message') this.onmessage = handler as any;
+    if (event === 'error') this.onerror = handler as any;
+  });
+  
+  off = jest.fn();
+}
+
+jest.mock('ws', () => {
+  return {
+    default: MockWebSocket,
+    WebSocket: MockWebSocket,
+    WebSocketServer: jest.fn().mockImplementation(() => ({
+      on: jest.fn(),
+      close: jest.fn(),
+    })),
+  };
+});
 
 // Mock JWT for testing
+class MockJsonWebTokenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'JsonWebTokenError';
+  }
+}
+
+class MockTokenExpiredError extends Error {
+  constructor(message: string, expiredAt: Date) {
+    super(message);
+    this.name = 'TokenExpiredError';
+    (this as any).expiredAt = expiredAt;
+  }
+}
+
 jest.mock('jsonwebtoken', () => ({
   sign: jest.fn(() => 'mock-jwt-token'),
   verify: jest.fn((token) => {
@@ -241,10 +429,12 @@ jest.mock('jsonwebtoken', () => ({
       return { email: 'user@example.com' };
     }
     if (token === 'invalid-token') {
-      throw new Error('Invalid token');
+      throw new MockJsonWebTokenError('Invalid token');
     }
     return { email: 'user@example.com' };
   }),
+  JsonWebTokenError: MockJsonWebTokenError,
+  TokenExpiredError: MockTokenExpiredError,
 }));
 
 // Mock bcrypt for testing
@@ -259,11 +449,10 @@ jest.mock('bcrypt', () => ({
 // Set test environment variables
 process.env['NODE_ENV'] = 'test';
 process.env['JWT_SECRET'] = 'test-secret';
-process.env['FIRESTORE_EMULATOR_HOST'] = 'localhost:8080';
-process.env['PUBSUB_EMULATOR_HOST'] = 'localhost:8085';
 process.env['GOOGLE_CLOUD_PROJECT'] = 'chatflow-test';
-process.env['USE_FIRESTORE'] = 'true';
-process.env['USE_PUBSUB'] = 'true';
+// Force tests to use mock adapters instead of emulator
+process.env['USE_FIRESTORE'] = 'false';
+process.env['USE_PUBSUB'] = 'false';
 
 // Export mock data for tests
 export {
@@ -275,4 +464,5 @@ export {
   mockConversation,
   mockFirestoreAdapter,
   mockPubSubAdapter,
+  mockSearchService,
 }; 

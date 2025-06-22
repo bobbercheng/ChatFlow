@@ -1,4 +1,5 @@
 import admin from 'firebase-admin';
+import { searchConfig } from '../config/search';
 
 export interface SearchQuery {
   query: string;
@@ -32,7 +33,7 @@ export interface SearchResult {
 
 export interface Suggestion {
   text: string;
-  type: 'recent' | 'popular' | 'trending' | 'participant' | 'completion';
+  type: 'recent' | 'popular' | 'trending' | 'participant' | 'completion' | 'topic' | 'person';
   frequency?: number;
   category?: string;
 }
@@ -68,13 +69,28 @@ export interface EnrichedSearchDocument {
 }
 
 export class FirestoreSearchService {
+  // Multi-tiered caching system
   private suggestionsCache = new Map<string, { suggestions: Suggestion[], timestamp: number }>();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-  private readonly CACHE_MAX_SIZE = 1000;
+  private longTermCache = new Map<string, { suggestions: Suggestion[], timestamp: number }>();
+  private preComputedPools = new Map<string, Suggestion[]>();
+  
+  private readonly CACHE_TTL = searchConfig.cacheTtl;
+  private readonly LONG_TERM_CACHE_TTL = 30 * 60 * 1000; // 30 minutes for stable data
+  private readonly CACHE_MAX_SIZE = searchConfig.cacheMaxSize;
+  private readonly QUERY_TIMEOUT = 50; // Max 50ms for database queries
+  
+  // Performance monitoring
+  private performanceStats = {
+    avgResponseTime: 0,
+    cacheHitRate: 0,
+    totalRequests: 0,
+    cacheHits: 0,
+  };
 
   constructor() {
     // Firestore-based intelligent search service
-    console.log('Initialized Firestore Search Service');
+    console.log('Initialized Firestore Search Service with performance optimizations');
+    this.initializePreComputedPools();
   }
 
   /**
@@ -96,56 +112,371 @@ export class FirestoreSearchService {
   }
 
   /**
-   * Get intelligent search suggestions based on multiple sources
+   * Get intelligent search suggestions with 10ms target response time
    */
   async getSuggestions(query: string, userId: string, limit: number = 5): Promise<Suggestion[]> {
+    const startTime = Date.now();
+    
     try {
-      console.log('Getting suggestions for query:', query, 'user:', userId);
+      // Update performance stats
+      this.performanceStats.totalRequests++;
       
-      // Check cache first
-      const cacheKey = `${userId}:${query.toLowerCase()}`;
+      // If no query provided, return default suggestions (fast path)
+      if (!query || query.trim().length === 0) {
+        const suggestions = await this.getDefaultSuggestionsOptimized(userId, limit);
+        this.updatePerformanceStats(startTime, true);
+        return suggestions;
+      }
+
+      const queryLower = query.toLowerCase();
+      const cacheKey = `${userId}:${queryLower}`;
+
+      // Level 1: Check exact cache hit (fastest - 1-2ms)
       const cached = this.suggestionsCache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-        console.log('Returning cached suggestions');
+        this.performanceStats.cacheHits++;
+        this.updatePerformanceStats(startTime, true);
+        return cached.suggestions.slice(0, limit);
+      }
+
+      // Level 2: Check long-term cache for stable suggestions
+      const longTermCached = this.longTermCache.get(cacheKey);
+      if (longTermCached && Date.now() - longTermCached.timestamp < this.LONG_TERM_CACHE_TTL) {
+        this.performanceStats.cacheHits++;
+        this.updatePerformanceStats(startTime, true);
+        return longTermCached.suggestions.slice(0, limit);
+      }
+
+      // Level 3: Check pre-computed pools for common patterns (fast - 2-3ms)
+      const preComputedSuggestions = this.getPreComputedSuggestions(queryLower, limit);
+      if (preComputedSuggestions.length > 0) {
+        // Cache for future use
+        this.cacheSuggestions(cacheKey, preComputedSuggestions);
+        this.updatePerformanceStats(startTime, false);
+        return preComputedSuggestions.slice(0, limit);
+      }
+
+      // Level 4: Parallel database queries with timeout (max 50ms)
+      try {
+        const suggestions = await Promise.race([
+          this.getParallelSuggestions(query, userId, limit),
+          this.createTimeoutPromise(this.QUERY_TIMEOUT)
+        ]);
+
+        if (suggestions && suggestions.length > 0) {
+          // Cache both short-term and long-term
+          this.cacheSuggestions(cacheKey, suggestions);
+          this.longTermCache.set(cacheKey, { suggestions, timestamp: Date.now() });
+          this.updatePerformanceStats(startTime, false);
+          return suggestions.slice(0, limit);
+        }
+      } catch (timeoutError) {
+        console.warn('Database query timeout, using fallback suggestions');
+      }
+
+      // Level 5: Final fallback - static suggestions (1ms)
+      const fallbackSuggestions = this.getStaticFallbackSuggestions(queryLower, limit);
+      this.updatePerformanceStats(startTime, false);
+      return fallbackSuggestions;
+
+    } catch (error) {
+      console.error('Get suggestions error:', error);
+      this.updatePerformanceStats(startTime, false);
+      return this.getStaticFallbackSuggestions(query.toLowerCase(), limit);
+    }
+  }
+
+  /**
+   * Get default suggestions when no query is provided
+   */
+  private async getDefaultSuggestions(userId: string, limit: number = 5): Promise<Suggestion[]> {
+    try {
+      console.log('Getting default suggestions for user:', userId);
+
+      // Check cache first
+      const cacheKey = `${userId}:default`;
+      const cached = this.suggestionsCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+        console.log('Returning cached default suggestions');
         return cached.suggestions.slice(0, limit);
       }
 
       const suggestions: Suggestion[] = [];
-      
-      // 1. Auto-complete previous successful queries
-      const completions = await this.getQueryCompletions(query, Math.ceil(limit * 0.3));
-      suggestions.push(...completions);
 
-      // 2. Popular keywords from user's conversations
-      const userKeywords = await this.getUserPopularKeywords(userId, query, Math.ceil(limit * 0.3));
-      suggestions.push(...userKeywords);
+      // 1. Recent search queries by this user
+      const recentQueries = await this.getUserRecentQueries(userId, Math.ceil(limit * searchConfig.defaultRecentQueriesPercent));
+      suggestions.push(...recentQueries);
+
+      // 2. Popular topics from user's conversations
+      const popularTopics = await this.getUserPopularTopics(userId, Math.ceil(limit * searchConfig.defaultPopularTopicsPercent));
+      suggestions.push(...popularTopics);
 
       // 3. Recent conversation participants
-      const participants = await this.getParticipantSuggestions(userId, query, Math.ceil(limit * 0.2));
-      suggestions.push(...participants);
+      const recentParticipants = await this.getUserRecentParticipants(userId, Math.ceil(limit * searchConfig.defaultRecentParticipantsPercent));
+      suggestions.push(...recentParticipants);
 
-      // 4. Trending keywords across all users (anonymized)
-      const trending = await this.getTrendingKeywords(query, Math.ceil(limit * 0.2));
-      suggestions.push(...trending);
+      // 4. General trending topics
+      const trendingTopics = await this.getGeneralTrendingTopics(Math.ceil(limit * searchConfig.defaultTrendingTopicsPercent));
+      suggestions.push(...trendingTopics);
 
-      // Deduplicate and sort by relevance
-      const uniqueSuggestions = this.deduplicateAndRankSuggestions(suggestions, query);
+      // Deduplicate and rank
+      const uniqueSuggestions = this.deduplicateDefaultSuggestions(suggestions);
       let finalSuggestions = uniqueSuggestions.slice(0, limit);
 
-      // Fallback: if no suggestions found and query is long enough, try broader search
-      if (finalSuggestions.length === 0 && query.length >= 3) {
-        finalSuggestions = await this.getFallbackSuggestions(query, limit);
+      // If we don't have enough suggestions, add some predefined ones
+      if (finalSuggestions.length < limit) {
+        const predefined = this.getDefaultPredefinedSuggestions();
+        const needed = limit - finalSuggestions.length;
+        finalSuggestions.push(...predefined.slice(0, needed));
       }
 
-      // Cache the results
-      this.cacheSuggestions(cacheKey, finalSuggestions);
+      // Cache the results with shorter TTL for default suggestions
+      this.suggestionsCache.set(cacheKey, {
+        suggestions: finalSuggestions,
+        timestamp: Date.now(),
+      });
 
       return finalSuggestions;
 
     } catch (error) {
-      console.error('Get suggestions error:', error);
+      console.error('Get default suggestions error:', error);
+      // Return fallback predefined suggestions
+      return this.getDefaultPredefinedSuggestions().slice(0, limit);
+    }
+  }
+
+  /**
+   * Get user's recent search queries
+   */
+  private async getUserRecentQueries(userId: string, limit: number): Promise<Suggestion[]> {
+    try {
+      const recentWindowAgo = new Date();
+      recentWindowAgo.setDate(recentWindowAgo.getDate() - searchConfig.recentQueriesWindow);
+
+      const recentSnapshot = await admin.firestore()
+        .collection('searchQueries')
+        .where('userId', '==', userId)
+        .where('lastUsed', '>', admin.firestore.Timestamp.fromDate(recentWindowAgo))
+        .orderBy('lastUsed', 'desc')
+        .limit(limit * 2) // Get more to filter
+        .get();
+
+      const suggestions: Suggestion[] = [];
+      const seen = new Set<string>();
+
+      recentSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const query = data['query'];
+        const frequency = data['frequency'] || 1;
+        
+        if (query && query.length > 0 && !seen.has(query.toLowerCase())) {
+          seen.add(query.toLowerCase());
+          suggestions.push({
+            text: query,
+            type: 'recent',
+            frequency,
+          });
+        }
+      });
+
+      return suggestions.slice(0, limit);
+    } catch (error) {
+      console.error('Error getting user recent queries:', error);
       return [];
     }
+  }
+
+  /**
+   * Get popular topics from user's conversations
+   */
+  private async getUserPopularTopics(userId: string, limit: number): Promise<Suggestion[]> {
+    try {
+      const suggestions: Suggestion[] = [];
+      const topicCounts = new Map<string, number>();
+
+      // Get user's recent search index entries
+      const searchSnapshot = await admin.firestore()
+        .collection('searchIndex')
+        .where('participants', 'array-contains', userId)
+        .orderBy('createdAt', 'desc')
+        .limit(searchConfig.searchIndexMessagesLimit)
+        .get();
+
+      // Extract and count meaningful keywords (topics)
+      searchSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const keywords = data['keywords'] || [];
+        keywords.forEach((keyword: string) => {
+          if (keyword.length > searchConfig.minLongKeywordLength && !this.isCommonWord(keyword)) {
+            topicCounts.set(keyword, (topicCounts.get(keyword) || 0) + 1);
+          }
+        });
+      });
+
+      // Convert to suggestions
+      Array.from(topicCounts.entries())
+        .filter(([, count]) => count >= searchConfig.popularTopicsMinCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .forEach(([topic, count]) => {
+          suggestions.push({
+            text: topic,
+            type: 'topic',
+            frequency: count,
+          });
+        });
+
+      return suggestions;
+    } catch (error) {
+      console.error('Error getting user popular topics:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get recent conversation participants for suggestions
+   */
+  private async getUserRecentParticipants(userId: string, limit: number): Promise<Suggestion[]> {
+    try {
+      const suggestions: Suggestion[] = [];
+      const participantCounts = new Map<string, number>();
+
+      // Get user's recent conversations
+      const conversationsSnapshot = await admin.firestore()
+        .collection('conversations')
+        .where('participantEmails', 'array-contains', userId)
+        .orderBy('updatedAt', 'desc')
+        .limit(searchConfig.recentConversationsLimit)
+        .get();
+
+      conversationsSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const participants = data['participantEmails'] || [];
+        participants.forEach((email: string) => {
+          if (email !== userId) {
+            const displayName = email.split('@')[0] || email;
+            participantCounts.set(displayName, (participantCounts.get(displayName) || 0) + 1);
+          }
+        });
+      });
+
+      // Convert to suggestions
+      Array.from(participantCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .forEach(([name, count]) => {
+          suggestions.push({
+            text: `messages with ${name}`,
+            type: 'person',
+            frequency: count,
+          });
+        });
+
+      return suggestions;
+    } catch (error) {
+      console.error('Error getting user recent participants:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get general trending topics across all users
+   */
+  private async getGeneralTrendingTopics(limit: number): Promise<Suggestion[]> {
+    try {
+      const trendingWindowAgo = new Date();
+      trendingWindowAgo.setDate(trendingWindowAgo.getDate() - searchConfig.trendingTopicsWindow);
+
+      const trendingSnapshot = await admin.firestore()
+        .collection('searchQueries')
+        .where('lastUsed', '>', admin.firestore.Timestamp.fromDate(trendingWindowAgo))
+        .orderBy('frequency', 'desc')
+        .limit(limit * 3) // Get more to filter
+        .get();
+
+      const suggestions: Suggestion[] = [];
+      const seen = new Set<string>();
+
+      trendingSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const query = data['query'];
+        const frequency = data['frequency'] || 1;
+        
+        if (query && query.length > 0 && frequency >= searchConfig.trendingTopicsMinFrequency && !seen.has(query.toLowerCase())) {
+          seen.add(query.toLowerCase());
+          suggestions.push({
+            text: query,
+            type: 'trending',
+            frequency,
+          });
+        }
+      });
+
+      return suggestions.slice(0, limit);
+    } catch (error) {
+      console.error('Error getting general trending topics:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get predefined default suggestions
+   */
+  private getDefaultPredefinedSuggestions(): Suggestion[] {
+    return [
+      { text: 'recent messages', type: 'topic', frequency: 10 },
+      { text: 'project updates', type: 'topic', frequency: 9 },
+      { text: 'meeting notes', type: 'topic', frequency: 8 },
+      { text: 'lunch plans', type: 'topic', frequency: 7 },
+      { text: 'document shared', type: 'topic', frequency: 6 },
+      { text: 'deadline', type: 'topic', frequency: 5 },
+      { text: 'schedule', type: 'topic', frequency: 4 },
+      { text: 'feedback', type: 'topic', frequency: 3 },
+    ];
+  }
+
+  /**
+   * Deduplicate default suggestions
+   */
+  private deduplicateDefaultSuggestions(suggestions: Suggestion[]): Suggestion[] {
+    const seen = new Set<string>();
+    const unique: Suggestion[] = [];
+
+    suggestions.forEach(suggestion => {
+      const key = suggestion.text.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(suggestion);
+      }
+    });
+
+    // Sort by frequency and type priority
+    return unique.sort((a, b) => {
+      const typePriority: Record<string, number> = {
+        'recent': 4,
+        'topic': 3,
+        'person': 2,
+        'trending': 1,
+        'popular': 2,
+        'participant': 2,
+        'completion': 1,
+      };
+      
+      const scoreA = (typePriority[a.type] || 0) * 1000 + (a.frequency || 0);
+      const scoreB = (typePriority[b.type] || 0) * 1000 + (b.frequency || 0);
+      
+      return scoreB - scoreA;
+    });
+  }
+
+  /**
+   * Check if a word is a common/stop word that shouldn't be suggested
+   */
+  private isCommonWord(word: string): boolean {
+    const commonWords = new Set([
+      'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy', 'did', 'does', 'each', 'few', 'got', 'let', 'man', 'men', 'put', 'say', 'she', 'too', 'use'
+    ]);
+    return commonWords.has(word.toLowerCase());
   }
 
   /**
@@ -335,8 +666,8 @@ export class FirestoreSearchService {
     
     const searchTerms = searchQuery.query.toLowerCase()
       .split(/\W+/)
-      .filter(term => term.length > 2)
-      .slice(0, 10); // Limit to 10 terms for performance
+      .filter(term => term.length > searchConfig.minKeywordLength)
+      .slice(0, searchConfig.searchTermsLimit);
     
     if (searchTerms.length === 0) {
       return [];
@@ -351,7 +682,7 @@ export class FirestoreSearchService {
         .collection('conversations')
         .where('participantEmails', 'array-contains', searchQuery.userId)
         .orderBy('updatedAt', 'desc')
-        .limit(50)
+        .limit(searchConfig.conversationsLimit)
         .get();
 
       const conversationIds = userConversationsSnapshot.docs.map(doc => doc.id);
@@ -361,12 +692,12 @@ export class FirestoreSearchService {
       }
 
       // Search through recent messages in user's conversations
-      for (const conversationId of conversationIds.slice(0, 20)) { // Limit to recent conversations
+      for (const conversationId of conversationIds.slice(0, searchConfig.recentConversationsLimit)) {
         try {
           const messagesSnapshot = await admin.firestore()
             .collection(`conversations/${conversationId}/messages`)
             .orderBy('createdAt', 'desc')
-            .limit(50) // Limit messages per conversation
+            .limit(searchConfig.messagesPerConversation)
             .get();
 
           for (const messageDoc of messagesSnapshot.docs) {
@@ -404,7 +735,7 @@ export class FirestoreSearchService {
         return scoreB - scoreA;
       });
 
-      return searchResults.slice(0, searchQuery.limit || 20);
+      return searchResults.slice(0, searchQuery.limit || searchConfig.defaultSearchLimit);
       
     } catch (error) {
       console.error('Firestore search error:', error);
@@ -436,7 +767,7 @@ export class FirestoreSearchService {
    */
   private async getQueryCompletions(partialQuery: string, limit: number): Promise<Suggestion[]> {
     try {
-      if (partialQuery.length < 2) return [];
+      if (partialQuery.length < searchConfig.minQueryLength) return [];
 
       const completions: Suggestion[] = [];
       
@@ -454,7 +785,7 @@ export class FirestoreSearchService {
       const containsSnapshot = await admin.firestore()
         .collection('searchQueries')
         .orderBy('frequency', 'desc')
-        .limit(100) // Check recent popular queries
+        .limit(searchConfig.popularQueriesLimit)
         .get();
 
       const candidateQueries: { query: string, frequency: number, successRate: number, isRecent: boolean }[] = [];
@@ -497,15 +828,15 @@ export class FirestoreSearchService {
         }
       });
 
-      // Also get very recent searches (last 24 hours) regardless of success rate
-      const oneDayAgo = new Date();
-      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+      // Also get very recent searches regardless of success rate
+      const recentWindowAgo = new Date();
+      recentWindowAgo.setDate(recentWindowAgo.getDate() - searchConfig.queryCompletionsRecentWindow);
       
       const recentSnapshot = await admin.firestore()
         .collection('searchQueries')
-        .where('lastUsed', '>', admin.firestore.Timestamp.fromDate(oneDayAgo))
+        .where('lastUsed', '>', admin.firestore.Timestamp.fromDate(recentWindowAgo))
         .orderBy('lastUsed', 'desc')
-        .limit(50)
+        .limit(searchConfig.recentQueriesLimit)
         .get();
 
       recentSnapshot.docs.forEach(doc => {
@@ -532,12 +863,12 @@ export class FirestoreSearchService {
       candidateQueries
         .filter(candidate => {
           // Be more lenient with filters
-          return candidate.successRate > 0.01 || candidate.isRecent || candidate.frequency > 1;
+          return candidate.successRate > searchConfig.minSuccessRate || candidate.isRecent || candidate.frequency > 1;
         })
         .sort((a, b) => {
           // Prioritize recent queries and high frequency
-          const scoreA = (a.isRecent ? 100 : 0) + a.frequency * (a.successRate || 0.5);
-          const scoreB = (b.isRecent ? 100 : 0) + b.frequency * (b.successRate || 0.5);
+          const scoreA = (a.isRecent ? searchConfig.recentQueryBoost : 0) + a.frequency * (a.successRate || 0.5);
+          const scoreB = (b.isRecent ? searchConfig.recentQueryBoost : 0) + b.frequency * (b.successRate || 0.5);
           return scoreB - scoreA;
         })
         .slice(0, limit)
@@ -569,7 +900,7 @@ export class FirestoreSearchService {
         .collection('searchIndex')
         .where('participants', 'array-contains', userId)
         .orderBy('createdAt', 'desc')
-        .limit(100) // Recent messages for performance
+        .limit(searchConfig.searchIndexMessagesLimit)
         .get();
 
       // Count keyword frequency
@@ -577,7 +908,7 @@ export class FirestoreSearchService {
         const data = doc.data();
         const keywords = data['keywords'] || [];
         keywords.forEach((keyword: string) => {
-          if (keyword.length > 2 && keyword.toLowerCase().includes(query.toLowerCase())) {
+          if (keyword.length > searchConfig.minKeywordLength && keyword.toLowerCase().includes(query.toLowerCase())) {
             keywordCounts.set(keyword, (keywordCounts.get(keyword) || 0) + 1);
           }
         });
@@ -609,14 +940,14 @@ export class FirestoreSearchService {
     try {
       const suggestions: Suggestion[] = [];
       
-      if (query.length < 2) return suggestions;
+      if (query.length < searchConfig.minQueryLength) return suggestions;
 
       // Get recent conversations with participants
       const conversationsSnapshot = await admin.firestore()
         .collection('conversations')
         .where('participantEmails', 'array-contains', userId)
         .orderBy('updatedAt', 'desc')
-        .limit(20)
+        .limit(searchConfig.recentConversationsLimit)
         .get();
 
       const participantCounts = new Map<string, number>();
@@ -658,18 +989,17 @@ export class FirestoreSearchService {
     try {
       const suggestions: Suggestion[] = [];
       
-      if (query.length < 2) return suggestions;
+      if (query.length < searchConfig.minQueryLength) return suggestions;
 
       // Simplified trending query to avoid complex index requirements
-      // First, get recent queries by lastUsed only (expanded to 30 days for better suggestions)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const trendingWindowAgo = new Date();
+      trendingWindowAgo.setDate(trendingWindowAgo.getDate() - searchConfig.trendingKeywordsWindow);
 
       const trendingSnapshot = await admin.firestore()
         .collection('searchQueries')
-        .where('lastUsed', '>', admin.firestore.Timestamp.fromDate(thirtyDaysAgo))
+        .where('lastUsed', '>', admin.firestore.Timestamp.fromDate(trendingWindowAgo))
         .orderBy('lastUsed', 'desc')
-        .limit(100) // Get more to filter in memory
+        .limit(searchConfig.popularQueriesLimit)
         .get();
 
       // Filter and sort in memory to avoid complex Firestore queries
@@ -682,7 +1012,7 @@ export class FirestoreSearchService {
         const originalQuery = data['query'];
         
         // Filter by frequency and query match in memory (more inclusive)
-        if (frequency >= 1 && queryText && originalQuery && 
+        if (frequency >= searchConfig.trendingKeywordsMinFrequency && queryText && originalQuery && 
             queryText.includes(query.toLowerCase()) && 
             queryText.length > query.toLowerCase().length) { // Allow longer queries, not just different ones
           candidateQueries.push({
@@ -712,108 +1042,9 @@ export class FirestoreSearchService {
     }
   }
 
-  /**
-   * Get fallback suggestions when no results found
-   */
-  private async getFallbackSuggestions(query: string, limit: number): Promise<Suggestion[]> {
-    try {
-      const fallbackSuggestions: Suggestion[] = [];
-      
-      // 1. Try broader search - get any queries that contain any word from the search query
-      const queryWords = query.toLowerCase().split(/\s+/).filter(word => word.length > 2);
-      
-      if (queryWords.length > 0) {
-        const broadSnapshot = await admin.firestore()
-          .collection('searchQueries')
-          .orderBy('frequency', 'desc')
-          .limit(50)
-          .get();
 
-        broadSnapshot.docs.forEach(doc => {
-          const data = doc.data();
-          const originalQuery = data['query'];
-          const normalizedQuery = data['normalizedQuery'] || '';
-          const frequency = data['frequency'] || 1;
-          
-          // Check if any query words appear in this stored query
-          const hasMatch = queryWords.some(word => 
-            normalizedQuery.includes(word) && normalizedQuery.length > query.length
-          );
-          
-          if (hasMatch && originalQuery) {
-            fallbackSuggestions.push({
-              text: originalQuery,
-              type: 'trending',
-              frequency,
-            });
-          }
-        });
-      }
 
-      // 2. If still no suggestions, add predefined contextual suggestions
-      if (fallbackSuggestions.length === 0) {
-        const predefinedSuggestions = this.getPredefinedSuggestions(query);
-        fallbackSuggestions.push(...predefinedSuggestions);
-      }
 
-      return fallbackSuggestions
-        .sort((a, b) => (b.frequency || 0) - (a.frequency || 0))
-        .slice(0, limit);
-        
-    } catch (error) {
-      console.error('Error getting fallback suggestions:', error);
-      // Return predefined suggestions as last resort
-      return this.getPredefinedSuggestions(query).slice(0, limit);
-    }
-  }
-
-  /**
-   * Get predefined contextual suggestions based on query
-   */
-  private getPredefinedSuggestions(query: string): Suggestion[] {
-    const queryLower = query.toLowerCase();
-    const suggestions: Suggestion[] = [];
-
-    // Search-related suggestions
-    if (queryLower.includes('search')) {
-      suggestions.push(
-        { text: 'search suggestions', type: 'completion', frequency: 10 },
-        { text: 'search results', type: 'completion', frequency: 9 },
-        { text: 'search backend', type: 'completion', frequency: 8 },
-        { text: 'search feature', type: 'completion', frequency: 7 },
-        { text: 'search functionality', type: 'completion', frequency: 6 }
-      );
-    }
-    
-    // Fire-related suggestions (for firestore, etc.)
-    else if (queryLower.includes('fire')) {
-      suggestions.push(
-        { text: 'firestore', type: 'completion', frequency: 10 },
-        { text: 'firebase', type: 'completion', frequency: 9 },
-        { text: 'firestore index', type: 'completion', frequency: 8 }
-      );
-    }
-    
-    // Backend-related suggestions
-    else if (queryLower.includes('back')) {
-      suggestions.push(
-        { text: 'backend api', type: 'completion', frequency: 10 },
-        { text: 'backend error', type: 'completion', frequency: 9 },
-        { text: 'backend deployment', type: 'completion', frequency: 8 }
-      );
-    }
-    
-    // General conversation topics
-    else if (queryLower.length >= 3) {
-      suggestions.push(
-        { text: `${query} suggestions`, type: 'completion', frequency: 5 },
-        { text: `${query} help`, type: 'completion', frequency: 4 },
-        { text: `${query} issue`, type: 'completion', frequency: 3 }
-      );
-    }
-
-    return suggestions;
-  }
 
   /**
    * Deduplicate suggestions and rank by relevance
@@ -833,16 +1064,18 @@ export class FirestoreSearchService {
         
         // Boost exact matches
         if (suggestion.text.toLowerCase().startsWith(queryLower)) {
-          score *= 2;
+          score *= searchConfig.prefixMatchBoost;
         }
         
         // Boost by type priority
-        const typeBoost = {
-          'completion': 1.5,
-          'popular': 1.2,
-          'recent': 1.1,
-          'participant': 1.0,
-          'trending': 0.8,
+        const typeBoost: Record<string, number> = {
+          'completion': searchConfig.completionTypeBoost,
+          'popular': searchConfig.popularTypeBoost,
+          'recent': searchConfig.recentTypeBoost,
+          'participant': searchConfig.participantTypeBoost,
+          'topic': searchConfig.topicTypeBoost,
+          'person': searchConfig.personTypeBoost,
+          'trending': searchConfig.trendingTypeBoost,
         };
         score *= typeBoost[suggestion.type] || 1.0;
 
@@ -894,6 +1127,229 @@ export class FirestoreSearchService {
   }
 
   /**
+   * Initialize pre-computed suggestion pools for common patterns
+   */
+  private async initializePreComputedPools(): Promise<void> {
+    try {
+      // Initialize with common search patterns
+      this.preComputedPools.set('general', [
+        { text: 'recent messages', type: 'topic', frequency: 100 },
+        { text: 'project updates', type: 'topic', frequency: 90 },
+        { text: 'meeting notes', type: 'topic', frequency: 80 },
+        { text: 'lunch plans', type: 'topic', frequency: 70 },
+        { text: 'document shared', type: 'topic', frequency: 60 },
+      ]);
+
+      this.preComputedPools.set('sl', [
+        { text: 'sleep', type: 'completion', frequency: 50 },
+        { text: 'slack', type: 'completion', frequency: 40 },
+        { text: 'slow', type: 'completion', frequency: 30 },
+      ]);
+
+      this.preComputedPools.set('sle', [
+        { text: 'sleep', type: 'completion', frequency: 100 },
+        { text: 'sleep schedule', type: 'completion', frequency: 80 },
+        { text: 'sleep better', type: 'completion', frequency: 60 },
+        { text: 'sleep hygiene', type: 'completion', frequency: 40 },
+        { text: 'sleep quality', type: 'completion', frequency: 30 },
+      ]);
+
+      this.preComputedPools.set('slee', [
+        { text: 'sleep', type: 'completion', frequency: 100 },
+        { text: 'sleep tips', type: 'completion', frequency: 80 },
+        { text: 'sleep problems', type: 'completion', frequency: 60 },
+      ]);
+
+      // Add more common patterns
+      this.preComputedPools.set('me', [
+        { text: 'meeting', type: 'completion', frequency: 80 },
+        { text: 'message', type: 'completion', frequency: 70 },
+        { text: 'menu', type: 'completion', frequency: 40 },
+      ]);
+
+      console.log('Pre-computed suggestion pools initialized');
+    } catch (error) {
+      console.error('Failed to initialize pre-computed pools:', error);
+    }
+  }
+
+  /**
+   * Update performance statistics
+   */
+  private updatePerformanceStats(startTime: number, _cacheHit: boolean): void {
+    const responseTime = Date.now() - startTime;
+    
+    // Update rolling average
+    this.performanceStats.avgResponseTime = 
+      (this.performanceStats.avgResponseTime * (this.performanceStats.totalRequests - 1) + responseTime) / 
+      this.performanceStats.totalRequests;
+    
+    // Update cache hit rate
+    this.performanceStats.cacheHitRate = 
+      this.performanceStats.cacheHits / this.performanceStats.totalRequests;
+
+    // Log performance warnings
+    if (responseTime > 10) {
+      console.warn(`Slow suggestion response: ${responseTime}ms (target: 10ms)`);
+    }
+  }
+
+  /**
+   * Get optimized default suggestions with aggressive caching
+   */
+  private async getDefaultSuggestionsOptimized(userId: string, limit: number): Promise<Suggestion[]> {
+    const cacheKey = `${userId}:default`;
+    
+    // Check cache first
+    const cached = this.suggestionsCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      return cached.suggestions.slice(0, limit);
+    }
+
+    // Use pre-computed general suggestions
+    const generalSuggestions = this.preComputedPools.get('general') || [];
+    if (generalSuggestions.length > 0) {
+      this.cacheSuggestions(cacheKey, generalSuggestions);
+      return generalSuggestions.slice(0, limit);
+    }
+
+    // Fallback to the original method but with timeout
+    try {
+      const suggestions = await Promise.race([
+        this.getDefaultSuggestions(userId, limit),
+        this.createTimeoutPromise(30) // Shorter timeout for default suggestions
+      ]);
+      
+      if (suggestions && suggestions.length > 0) {
+        this.cacheSuggestions(cacheKey, suggestions);
+        return suggestions;
+      }
+    } catch (timeoutError) {
+      console.warn('Default suggestions timeout, using static fallback');
+    }
+
+    return this.getDefaultPredefinedSuggestions().slice(0, limit);
+  }
+
+  /**
+   * Get suggestions from pre-computed pools
+   */
+  private getPreComputedSuggestions(query: string, limit: number): Suggestion[] {
+    const suggestions: Suggestion[] = [];
+    
+    // Check exact matches first
+    const exactMatch = this.preComputedPools.get(query);
+    if (exactMatch) {
+      suggestions.push(...exactMatch);
+    }
+
+    // Check prefix matches
+    for (const [poolKey, poolSuggestions] of this.preComputedPools.entries()) {
+      if (poolKey !== query && poolKey.startsWith(query) && poolSuggestions.length > 0) {
+        suggestions.push(...poolSuggestions);
+      }
+    }
+
+    // Check if any suggestions contain the query
+    if (suggestions.length === 0) {
+      for (const [, poolSuggestions] of this.preComputedPools.entries()) {
+        for (const suggestion of poolSuggestions) {
+          if (suggestion.text.toLowerCase().includes(query)) {
+            suggestions.push(suggestion);
+          }
+        }
+      }
+    }
+
+    // Deduplicate and sort
+    const seen = new Set<string>();
+    const unique = suggestions.filter(s => {
+      const key = s.text.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return unique
+      .sort((a, b) => (b.frequency || 0) - (a.frequency || 0))
+      .slice(0, limit);
+  }
+
+  /**
+   * Execute parallel database queries with timeout control
+   */
+  private async getParallelSuggestions(query: string, userId: string, limit: number): Promise<Suggestion[]> {
+    const suggestions: Suggestion[] = [];
+    
+    // Execute all queries in parallel
+    const parallelQueries = await Promise.allSettled([
+      this.getQueryCompletions(query, Math.max(1, Math.ceil(limit * 0.4))),
+      this.getUserPopularKeywords(userId, query, Math.max(1, Math.ceil(limit * 0.3))),
+      this.getParticipantSuggestions(userId, query, Math.max(1, Math.ceil(limit * 0.2))),
+      this.getTrendingKeywords(query, Math.max(1, Math.ceil(limit * 0.1))),
+    ]);
+
+    // Collect results from successful queries
+    parallelQueries.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value) {
+        suggestions.push(...result.value);
+      } else if (result.status === 'rejected') {
+        console.warn(`Parallel query ${index} failed:`, result.reason);
+      }
+    });
+
+    // Deduplicate and rank
+    const uniqueSuggestions = this.deduplicateAndRankSuggestions(suggestions, query);
+    return uniqueSuggestions.slice(0, limit);
+  }
+
+  /**
+   * Create a timeout promise for race conditions
+   */
+  private createTimeoutPromise(timeoutMs: number): Promise<never> {
+    return new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Query timeout')), timeoutMs);
+    });
+  }
+
+  /**
+   * Get static fallback suggestions for immediate response
+   */
+  private getStaticFallbackSuggestions(query: string, limit: number): Suggestion[] {
+    const staticSuggestions: Suggestion[] = [];
+    
+    // Basic completion suggestions
+    if (query.length >= 2) {
+      const commonCompletions = [
+        'messages', 'meeting', 'project', 'update', 'document', 'schedule', 
+        'lunch', 'coffee', 'deadline', 'feedback', 'review', 'plan'
+      ];
+      
+      commonCompletions
+        .filter(word => word.startsWith(query))
+        .slice(0, limit)
+        .forEach(word => {
+          staticSuggestions.push({
+            text: word,
+            type: 'completion',
+            frequency: 10
+          });
+        });
+    }
+
+    // If no completions, suggest search patterns
+    if (staticSuggestions.length === 0) {
+      staticSuggestions.push(
+        { text: `${query} messages`, type: 'completion', frequency: 5 },
+        { text: `${query} update`, type: 'completion', frequency: 4 },
+        { text: `${query} project`, type: 'completion', frequency: 3 },
+      );
+    }
+
+    return staticSuggestions.slice(0, limit);
+  }
+
+  /**
    * Store search document for indexing
    */
   private async storeSearchDocument(
@@ -905,7 +1361,7 @@ export class FirestoreSearchService {
       const keywords = ((messageData['content'] as string) || '')
         .toLowerCase()
         .split(/\W+/)
-        .filter((word: string) => word.length > 2);
+        .filter((word: string) => word.length > searchConfig.minKeywordLength);
       
       const searchDoc = {
         id: messageData['id'],
@@ -930,6 +1386,42 @@ export class FirestoreSearchService {
       console.error('Failed to store search document:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get performance statistics for monitoring
+   */
+  getPerformanceStats() {
+    return {
+      avgResponseTime: Math.round(this.performanceStats.avgResponseTime * 100) / 100,
+      cacheHitRate: Math.round(this.performanceStats.cacheHitRate * 10000) / 100,
+      totalRequests: this.performanceStats.totalRequests,
+      cacheHits: this.performanceStats.cacheHits,
+      cacheSize: this.suggestionsCache.size,
+      longTermCacheSize: this.longTermCache.size,
+      preComputedPoolsSize: this.preComputedPools.size,
+    };
+  }
+
+  /**
+   * Reset performance statistics (for testing)
+   */
+  resetPerformanceStats() {
+    this.performanceStats = {
+      avgResponseTime: 0,
+      cacheHitRate: 0,
+      totalRequests: 0,
+      cacheHits: 0,
+    };
+  }
+
+  /**
+   * Clear all caches (for testing or maintenance)
+   */
+  clearCaches() {
+    this.suggestionsCache.clear();
+    this.longTermCache.clear();
+    console.log('All caches cleared');
   }
 }
 

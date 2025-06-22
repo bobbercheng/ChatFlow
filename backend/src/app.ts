@@ -19,8 +19,12 @@ const app = express();
 const getAllowedOrigins = () => {
   const corsOrigin = process.env['CORS_ORIGIN'];
   
-  // Default development origins
-  const defaultOrigins = ['http://localhost:3001', 'http://localhost:3003'];
+  // Default development origins + Google Storage
+  const defaultOrigins = [
+    'http://localhost:3001', 
+    'http://localhost:3003',
+    'https://storage.googleapis.com'
+  ];
   
   if (corsOrigin) {
     if (corsOrigin === '*') {
@@ -37,9 +41,21 @@ const getAllowedOrigins = () => {
 
 // Security middleware
 app.use(helmet());
+
+// CORS middleware with optimized preflight caching
+// Note: Preflight requests (OPTIONS) are still required for:
+// - Non-simple methods (anything other than GET, HEAD, POST)
+// - Custom headers like Authorization
+// - Content-Type other than application/x-www-form-urlencoded, multipart/form-data, or text/plain
+// The maxAge helps reduce frequency by caching the preflight response
 app.use(cors({
   origin: getAllowedOrigins(),
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Authorization', 'Content-Type', 'Accept', 'X-Requested-With'],
+  maxAge: 86400, // 24 hours (Safari caps at 1 hour, but other browsers respect this)
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
 // Body parsing middleware

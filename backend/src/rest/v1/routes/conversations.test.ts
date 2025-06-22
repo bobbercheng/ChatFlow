@@ -37,7 +37,7 @@ describe('Conversation Routes', () => {
       expect(response.status).toBe(201);
       expect(response.body.success).toBe(true);
       expect(response.body.data.type).toBe('GROUP');
-      expect(response.body.data.participants).toHaveLength(2); // Mock returns 2 participants
+      expect(response.body.data.participants).toHaveLength(3); // Creator + 2 participants = 3 total
     });
 
     test('should return existing direct conversation if it already exists', async () => {

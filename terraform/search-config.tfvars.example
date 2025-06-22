@@ -1,0 +1,191 @@
+# Search Service Configuration Example
+# Copy this file to search-config.tfvars and customize as needed
+# Then apply with: terraform apply -var-file="search-config.tfvars"
+
+# =========================================
+# SEARCH CACHE CONFIGURATION
+# =========================================
+
+# Cache time-to-live in milliseconds (default: 5 minutes)
+search_cache_ttl = 300000
+
+# Maximum number of cached suggestion sets (default: 1000)
+search_cache_max_size = 1000
+
+# =========================================
+# TIME WINDOWS (in days)
+# =========================================
+
+# Window for considering queries as "recent" (default: 7 days)
+search_recent_queries_window = 7
+
+# Window for calculating trending topics (default: 7 days)
+search_trending_topics_window = 7
+
+# Extended window for trending keywords analysis (default: 30 days)
+search_trending_keywords_window = 30
+
+# Window for recent query completions (default: 1 day)
+search_completions_recent_window = 1
+
+# =========================================
+# QUERY LIMITS
+# =========================================
+
+# Maximum messages to process from search index (default: 100)
+search_index_messages_limit = 100
+
+# Maximum conversations to consider for search (default: 50)
+search_conversations_limit = 50
+
+# Maximum recent conversations to search (default: 20)
+search_recent_conversations_limit = 20
+
+# Maximum popular queries to analyze (default: 100)
+search_popular_queries_limit = 100
+
+# Maximum recent queries to fetch (default: 50)
+search_recent_queries_limit = 50
+
+# Maximum search terms per query (default: 10)
+search_terms_limit = 10
+
+# =========================================
+# SUGGESTION ALLOCATION PERCENTAGES
+# These should sum to 1.0 for balanced suggestions
+# =========================================
+
+# Percentage for query completion suggestions (default: 30%)
+search_suggestions_completions_percent = 0.3
+
+# Percentage for user's popular keywords (default: 30%)
+search_suggestions_user_keywords_percent = 0.3
+
+# Percentage for conversation participants (default: 20%)
+search_suggestions_participants_percent = 0.2
+
+# Percentage for trending suggestions (default: 20%)
+search_suggestions_trending_percent = 0.2
+
+# =========================================
+# DEFAULT SUGGESTION ALLOCATION
+# For when no query is provided - should sum to 1.0
+# =========================================
+
+# Percentage for user's recent queries (default: 25%)
+search_default_recent_queries_percent = 0.25
+
+# Percentage for user's popular topics (default: 35%)
+search_default_popular_topics_percent = 0.35
+
+# Percentage for recent participants (default: 25%)
+search_default_recent_participants_percent = 0.25
+
+# Percentage for general trending topics (default: 15%)
+search_default_trending_topics_percent = 0.15
+
+# =========================================
+# FREQUENCY THRESHOLDS
+# =========================================
+
+# Minimum mentions for a topic to be considered "popular" (default: 2)
+search_popular_topics_min_count = 2
+
+# Minimum frequency for trending topics (default: 2)
+search_trending_topics_min_frequency = 2
+
+# Minimum frequency for trending keywords (default: 1)
+search_trending_keywords_min_frequency = 1
+
+# =========================================
+# LENGTH THRESHOLDS
+# =========================================
+
+# Minimum characters for query processing (default: 2)
+search_min_query_length = 2
+
+# Minimum characters for keyword indexing (default: 2)
+search_min_keyword_length = 2
+
+# Minimum characters for "long" keywords (default: 3)
+search_min_long_keyword_length = 3
+
+# =========================================
+# QUALITY THRESHOLDS
+# =========================================
+
+# Minimum success rate for query suggestions (default: 0.01)
+search_min_success_rate = 0.01
+
+# =========================================
+# RESULT LIMITS
+# =========================================
+
+# Default search result limit when none specified (default: 20)
+search_default_limit = 20
+
+# Maximum search results ever returned (default: 50)
+search_max_results = 50
+
+# Maximum messages to search per conversation (default: 50)
+search_messages_per_conversation = 50
+
+# =========================================
+# SUGGESTION TYPE BOOST MULTIPLIERS
+# Higher values make suggestions of that type more likely
+# =========================================
+
+# Boost for completion-type suggestions (default: 1.5)
+search_completion_type_boost = 1.5
+
+# Boost for user's popular keywords (default: 1.2)
+search_popular_type_boost = 1.2
+
+# Boost for recent searches (default: 1.1)
+search_recent_type_boost = 1.1
+
+# Boost for participant suggestions (default: 1.0)
+search_participant_type_boost = 1.0
+
+# Boost for topic suggestions (default: 1.0)
+search_topic_type_boost = 1.0
+
+# Boost for person suggestions (default: 1.0)
+search_person_type_boost = 1.0
+
+# Boost for trending suggestions (default: 0.8)
+search_trending_type_boost = 0.8
+
+# =========================================
+# SCORING MULTIPLIERS
+# =========================================
+
+# Multiplier for exact prefix matches (default: 2.0)
+search_prefix_match_boost = 2.0
+
+# Score boost for very recent queries (default: 100)
+search_recent_query_boost = 100
+
+# =========================================
+# EXAMPLE CONFIGURATIONS
+# =========================================
+
+# High-performance configuration (more aggressive caching):
+# search_cache_ttl = 600000  # 10 minutes
+# search_cache_max_size = 2000
+# search_recent_queries_limit = 100
+
+# Memory-optimized configuration (less caching):
+# search_cache_ttl = 60000   # 1 minute
+# search_cache_max_size = 500
+# search_index_messages_limit = 50
+
+# Trending-focused configuration:
+# search_suggestions_trending_percent = 0.4
+# search_suggestions_completions_percent = 0.2
+# search_trending_type_boost = 1.2
+
+# Quality-focused configuration:
+# search_min_success_rate = 0.1
+# search_popular_topics_min_count = 3
+# search_trending_topics_min_frequency = 5 
