@@ -2,6 +2,7 @@ import { databaseAdapter, messagingAdapter } from '../adapters';
 import { PubSubMessage } from '../messaging/adapters/base.adapter';
 import { COLLECTIONS, FirestoreMessage, MessageDeliveryStatus } from '../types/firestore';
 import { WebSocket } from 'ws';
+import { responseEncryptionService } from '../middleware/encryption';
 
 // Minimal duplicate of AuthenticatedWebSocket from websocket.ts to avoid import cycles
 interface AuthenticatedWebSocket extends WebSocket {
@@ -26,6 +27,38 @@ export class NotificationServicePubSub {
     this.initializePubSub().catch((err: unknown) => 
       console.error('Failed to initialize Pub/Sub:', err)
     );
+  }
+
+  // Helper function to send encrypted WebSocket messages
+  private async sendEncryptedWebSocketMessage(ws: AuthenticatedWebSocket, type: string, payload: any, timestamp: string): Promise<void> {
+    try {
+      if (ws.userEmail) {
+        const encryptedResponse = await responseEncryptionService.createEncryptedWebSocketResponse(
+          type, 
+          payload, 
+          ws.userEmail
+        );
+        ws.send(encryptedResponse);
+      } else {
+        // Fallback to plain message if no user email
+        ws.send(JSON.stringify({
+          type,
+          payload,
+          timestamp,
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to send encrypted WebSocket message via notification service:', error);
+      // Send error message in plain text as fallback
+      ws.send(JSON.stringify({
+        type: 'error',
+        payload: { 
+          message: 'Message encryption failed',
+          code: 'ENCRYPTION_ERROR'
+        },
+        timestamp: new Date().toISOString(),
+      }));
+    }
   }
 
   private async initializePubSub(): Promise<void> {
@@ -200,20 +233,17 @@ export class NotificationServicePubSub {
       const sockets = this.connections.get(email);
       if (!sockets || sockets.size === 0) continue;
 
-      console.log(`Broadcasting to all connections for online user ${email}`, {
+      console.log(`Broadcasting encrypted messages to all connections for online user ${email}`, {
         type: event.type,
         recipientCount: event.recipients.length,
       });
 
       for (const ws of sockets) {
         try {
-          ws.send(JSON.stringify({
-            type: event.type,
-            payload: event.payload,
-            timestamp: event.timestamp,
-          }));
+          // Send encrypted WebSocket message instead of plain JSON
+          await this.sendEncryptedWebSocketMessage(ws, event.type, event.payload, event.timestamp);
         } catch (error) {
-          console.error(`WebSocket send error to ${email}:`, error);
+          console.error(`WebSocket encrypted send error to ${email}:`, error);
         }
       }
 

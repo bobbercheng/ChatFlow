@@ -3,6 +3,7 @@ import { body, query, param, validationResult } from 'express-validator';
 import { authenticateToken } from '../../../middleware/auth';
 import { adminRateLimit, rateLimitService } from '../../../middleware/rate-limit';
 import { UserRateLimit } from '../../../types/rate-limit';
+import { keyManagementService, keyManagementUtils } from '../../../services/key-management.service';
 
 const router = Router();
 
@@ -592,5 +593,327 @@ router.get('/rate-limits/config', async (_req: Request, res: Response) => {
     });
   }
 });
+
+/**
+ * @swagger
+ * /v1/admin/keys/health:
+ *   get:
+ *     summary: Get key system health status
+ *     tags: [Admin - Key Management]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Key system health information
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalKeys:
+ *                       type: integer
+ *                     activeKeys:
+ *                       type: integer
+ *                     expiredKeys:
+ *                       type: integer
+ *                     keysNeedingRotation:
+ *                       type: integer
+ *                     lastRotation:
+ *                       type: string
+ *                       format: date-time
+ */
+router.get('/keys/health', async (_req: Request, res: Response) => {
+  try {
+    const health = await keyManagementService.getKeySystemHealth();
+    
+    return res.json({
+      success: true,
+      data: health
+    });
+  } catch (error) {
+    console.error('Error getting key system health:', error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to get key system health',
+        code: 'INTERNAL_ERROR'
+      }
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /v1/admin/keys:
+ *   get:
+ *     summary: List key metadata (no actual keys)
+ *     tags: [Admin - Key Management]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: purpose
+ *         in: query
+ *         schema:
+ *           type: string
+ *           enum: [message, search, suggestion, general]
+ *       - name: userId
+ *         in: query
+ *         schema:
+ *           type: string
+ *       - name: isActive
+ *         in: query
+ *         schema:
+ *           type: boolean
+ *       - name: includeExpired
+ *         in: query
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *     responses:
+ *       200:
+ *         description: List of key metadata
+ */
+router.get('/keys',
+  [
+    query('purpose').optional().isIn(['message', 'search', 'suggestion', 'general']),
+    query('userId').optional().isEmail().withMessage('Valid email required'),
+    query('isActive').optional().isBoolean(),
+    query('includeExpired').optional().isBoolean()
+  ],
+  async (req: Request, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'Validation failed',
+          code: 'VALIDATION_ERROR',
+          details: errors.array()
+        }
+      });
+    }
+
+    try {
+      const filters: any = {};
+      if (req.query['purpose']) filters.purpose = req.query['purpose'] as string;
+      if (req.query['userId']) filters.userId = req.query['userId'] as string;
+      if (req.query['isActive'] !== undefined) filters.isActive = req.query['isActive'] === 'true';
+      if (req.query['includeExpired'] !== undefined) filters.includeExpired = req.query['includeExpired'] === 'true';
+
+      const keys = await keyManagementService.listKeys(filters);
+      
+      return res.json({
+        success: true,
+        data: keys
+      });
+    } catch (error) {
+      console.error('Error listing keys:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: 'Failed to list keys',
+          code: 'INTERNAL_ERROR'
+        }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /v1/admin/keys/rotate:
+ *   post:
+ *     summary: Trigger key rotation
+ *     tags: [Admin - Key Management]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               keyId:
+ *                 type: string
+ *                 description: Specific key to rotate (optional, defaults to automatic rotation)
+ *     responses:
+ *       200:
+ *         description: Key rotation completed
+ */
+router.post('/keys/rotate',
+  [
+    body('keyId').optional().isString()
+  ],
+  async (req: Request, res: Response) => {
+    try {
+      if (req.body.keyId) {
+        // Rotate specific key
+        const newMetadata = await keyManagementService.rotateKey(req.body.keyId);
+        return res.json({
+          success: true,
+          data: {
+            message: 'Key rotated successfully',
+            oldKeyId: req.body.keyId,
+            newKeyId: newMetadata.keyId,
+            newVersion: newMetadata.version
+          }
+        });
+      } else {
+        // Perform automatic rotation of old keys
+        await keyManagementService.performKeyRotation();
+        return res.json({
+          success: true,
+          data: {
+            message: 'Automatic key rotation completed'
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error rotating keys:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: 'Failed to rotate keys',
+          code: 'INTERNAL_ERROR'
+        }
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /v1/admin/keys/cleanup:
+ *   post:
+ *     summary: Cleanup expired keys
+ *     tags: [Admin - Key Management]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Key cleanup completed
+ */
+router.post('/keys/cleanup', async (_req: Request, res: Response) => {
+  try {
+    await keyManagementService.cleanupExpiredKeys();
+    
+    return res.json({
+      success: true,
+      data: {
+        message: 'Expired keys cleanup completed'
+      }
+    });
+  } catch (error) {
+    console.error('Error cleaning up keys:', error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to cleanup expired keys',
+        code: 'INTERNAL_ERROR'
+      }
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /v1/admin/keys/stats:
+ *   get:
+ *     summary: Get key usage statistics
+ *     tags: [Admin - Key Management]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Key system statistics
+ */
+router.get('/keys/stats', async (_req: Request, res: Response) => {
+  try {
+    const stats = await keyManagementUtils.getSystemStats();
+    
+    return res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('Error getting key stats:', error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to get key statistics',
+        code: 'INTERNAL_ERROR'
+      }
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /v1/admin/keys/initialize:
+ *   post:
+ *     summary: Initialize key management system
+ *     tags: [Admin - Key Management]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               adminEmail:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Key system initialized
+ */
+router.post('/keys/initialize',
+  [
+    body('adminEmail').optional().isEmail().withMessage('Valid email required')
+  ],
+  async (req: any, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'Validation failed',
+          code: 'VALIDATION_ERROR',
+          details: errors.array()
+        }
+      });
+    }
+
+    try {
+      const adminEmail = req.body.adminEmail || req.user?.email;
+      await keyManagementUtils.initializeSystem(adminEmail);
+      
+      return res.json({
+        success: true,
+        data: {
+          message: 'Key management system initialized successfully',
+          adminEmail
+        }
+      });
+    } catch (error) {
+      console.error('Error initializing key system:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: 'Failed to initialize key system',
+          code: 'INTERNAL_ERROR'
+        }
+      });
+    }
+  }
+);
 
 export { router as adminRoutes }; 

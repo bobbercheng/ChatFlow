@@ -1,6 +1,7 @@
 import express from 'express';
 import { body, query, validationResult } from 'express-validator';
 import { authenticateToken, AuthenticatedRequest } from '../../../middleware/auth';
+import { decryptionMiddleware } from '../../../middleware/encryption';
 import { searchService, SearchQuery } from '../../../services/search.service';
 import { Response } from 'express';
 
@@ -165,6 +166,7 @@ router.get('/conversations',
 // POST version of conversations search endpoint for web clients
 router.post('/conversations', 
   authenticateToken,
+  decryptionMiddleware,
   [
     body('q')
       .notEmpty()
@@ -369,6 +371,7 @@ router.get('/suggestions',
 // POST version of suggestions endpoint for web clients
 router.post('/suggestions',
   authenticateToken,
+  decryptionMiddleware,
   [
     body('q')
       .optional()

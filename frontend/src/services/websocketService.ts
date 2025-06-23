@@ -1,5 +1,6 @@
 import { WebSocketEvent } from '../types/index.js';
 import { config } from '../config/environment.js';
+import { encryptionService, EncryptedField } from '../utils/encryption.js';
 
 const WS_URL = config.WS_BASE_URL;
 
@@ -16,20 +17,34 @@ class WebSocketService {
     connect(token: string): Promise<void> {
         return new Promise((resolve, reject) => {
             this.token = token;
-            const wsUrl = `${WS_URL}?token=${encodeURIComponent(token)}`;
             
             try {
+                // Note: Browser WebSocket API doesn't support custom headers
+                // The enhanced WebSocket security on backend supports both Authorization header and query parameter
+                // Using query parameter for browser compatibility
+                const wsUrl = `${WS_URL}?token=${encodeURIComponent(token)}`;
                 this.ws = new WebSocket(wsUrl);
                 
                 this.ws.onopen = () => {
-                    console.log('WebSocket connected to:', WS_URL);
+                    console.log('🔌 WebSocket connected to:', WS_URL);
                     this.reconnectAttempts = 0;
                     resolve();
                 };
 
-                this.ws.onmessage = (event) => {
+                this.ws.onmessage = async (event) => {
                     try {
                         const data: WebSocketEvent = JSON.parse(event.data);
+                        
+                        // Decrypt any encrypted fields if encryption is available
+                        if (encryptionService.isReady()) {
+                            try {
+                                await this.decryptWebSocketPayload(data);
+                            } catch (error) {
+                                console.error('Failed to decrypt WebSocket payload:', error);
+                                // Continue with encrypted content rather than failing
+                            }
+                        }
+                        
                         this.messageHandlers.forEach(handler => handler(data));
                     } catch (error) {
                         console.error('Failed to parse WebSocket message:', error);
@@ -68,12 +83,25 @@ class WebSocketService {
         }
     }
 
-    sendMessage(conversationId: string, content: string): void {
+    async sendMessage(conversationId: string, content: string): Promise<void> {
+        let contentToSend: string | EncryptedField = content;
+
+        // Encrypt message content if encryption is available
+        if (encryptionService.isReady()) {
+            try {
+                contentToSend = await encryptionService.encryptMessage(content);
+                console.log('🔐 Encrypted WebSocket message content');
+            } catch (error) {
+                console.error('Failed to encrypt WebSocket message:', error);
+                // Continue with plain text if encryption fails
+            }
+        }
+
         this.send({
             type: 'message:create',
             payload: {
                 conversationId,
-                content,
+                content: contentToSend,
                 messageType: 'TEXT'
             }
         });
@@ -98,6 +126,56 @@ class WebSocketService {
                 this.messageHandlers.splice(index, 1);
             }
         };
+    }
+
+    /**
+     * Recursively decrypt encrypted fields in WebSocket payload
+     */
+    private async decryptWebSocketPayload(data: WebSocketEvent): Promise<void> {
+        if (!data.payload || typeof data.payload !== 'object') {
+            return;
+        }
+
+        const decryptedCount = await this.decryptObjectFields(data.payload);
+        
+        if (decryptedCount > 0) {
+            console.log(`🔓 Decrypted ${decryptedCount} fields in WebSocket payload`);
+        }
+    }
+
+    /**
+     * Recursively decrypt encrypted fields in an object
+     */
+    private async decryptObjectFields(obj: any): Promise<number> {
+        if (!obj || typeof obj !== 'object') {
+            return 0;
+        }
+
+        let decryptedCount = 0;
+
+        // Sensitive field names that might be encrypted
+        const sensitiveFields = [
+            'content', 'body', 'text', 'query', 'suggestion', 'suggestionText',
+            'rawContent', 'semanticContent', 'highlightedContent'
+        ];
+
+        for (const [key, value] of Object.entries(obj)) {
+            if (sensitiveFields.includes(key) && encryptionService.isEncryptedField(value)) {
+                try {
+                    const decryptedValue = await encryptionService.decryptField(value as EncryptedField);
+                    obj[key] = decryptedValue;
+                    decryptedCount++;
+                } catch (error) {
+                    console.error(`Failed to decrypt field '${key}':`, error);
+                    // Continue with other fields
+                }
+            } else if (value && typeof value === 'object') {
+                // Recursively check nested objects
+                decryptedCount += await this.decryptObjectFields(value);
+            }
+        }
+
+        return decryptedCount;
     }
 
     private handleReconnect(): void {

@@ -13,6 +13,7 @@ import { conversationRoutes } from './rest/v1/routes/conversations';
 import { messageRoutes } from './rest/v1/routes/messages';
 import searchRoutes from './rest/v1/routes/search';
 import { adminRoutes } from './rest/v1/routes/admin';
+import { keyRoutes } from './rest/v1/routes/keys';
 import { healthService } from './services/health.service';
 
 const app = express();
@@ -142,6 +143,7 @@ app.use('/v1/conversations', conversationRoutes);
 app.use('/v1/conversations', messageRoutes);
 app.use('/v1/messages', messageRoutes);
 app.use('/v1/search', searchRoutes);
+app.use('/v1/keys', keyRoutes); // Public key coordination endpoints
 app.use('/v1/admin', adminRoutes);
 
 // 404 handler

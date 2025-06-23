@@ -3,6 +3,7 @@ import { databaseAdapter } from '../adapters';
 import { PaginationOptions, PaginationResult } from '../database/adapters/base.adapter';
 import { conversationService } from './conversation.service';
 import { notificationService } from './notification.service';
+import { MESSAGE_LIMITS } from '../config/constants';
 import { 
   COLLECTIONS, 
   FirestoreMessage, 
@@ -33,8 +34,8 @@ export class MessageServiceFirestore {
       throw new HttpError(400, 'Message content cannot be empty', 'EMPTY_CONTENT');
     }
 
-    if (content.length > 10000) {
-      throw new HttpError(400, 'Message content too long (max 10000 characters)', 'CONTENT_TOO_LONG');
+    if (content.length > MESSAGE_LIMITS.MAX_CONTENT_LENGTH) {
+      throw new HttpError(400, `Message content too long (max ${MESSAGE_LIMITS.MAX_CONTENT_LENGTH.toLocaleString()} characters)`, 'CONTENT_TOO_LONG');
     }
 
     // Get sender info for denormalization
@@ -192,8 +193,8 @@ export class MessageServiceFirestore {
       throw new HttpError(400, 'Message content cannot be empty', 'EMPTY_CONTENT');
     }
 
-    if (content.length > 10000) {
-      throw new HttpError(400, 'Message content too long (max 10000 characters)', 'CONTENT_TOO_LONG');
+    if (content.length > MESSAGE_LIMITS.MAX_CONTENT_LENGTH) {
+      throw new HttpError(400, `Message content too long (max ${MESSAGE_LIMITS.MAX_CONTENT_LENGTH.toLocaleString()} characters)`, 'CONTENT_TOO_LONG');
     }
 
     // Update message

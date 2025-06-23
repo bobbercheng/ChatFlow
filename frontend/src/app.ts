@@ -3,6 +3,7 @@ import { websocketService } from './services/websocketService.js';
 import { User, Message, WebSocketEvent, SearchResult } from './types/index.js';
 import { config } from './config/environment.js';
 import { SearchComponent } from './modules/chatflow/app/components/SearchComponent.js';
+import './version.js'; // Initialize version display
 
 interface MessageDisplay {
     id?: string;
@@ -284,6 +285,14 @@ export class ChatFlowApp {
                 this.isLoggedIn = true;
                 apiService.setToken(response.data.token);
                 
+                // Initialize encryption system after authentication
+                try {
+                    await apiService.initializeEncryption();
+                    console.log('🔐 Encryption system ready');
+                } catch (error) {
+                    console.warn('🔐 Encryption initialization failed, continuing without encryption:', error);
+                }
+                
                 await this.initializeWebSocket(response.data.token);
                 this.showMainInterface();
             } else {
@@ -329,7 +338,7 @@ export class ChatFlowApp {
         sendBtn.textContent = 'Sending...';
 
         try {
-            websocketService.sendMessage(this.conversationId, content);
+            await websocketService.sendMessage(this.conversationId, content);
             messageInput.value = '';
         } catch (error) {
             console.error('Send message error:', error);

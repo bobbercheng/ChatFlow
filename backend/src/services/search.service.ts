@@ -98,11 +98,20 @@ export class FirestoreSearchService {
    */
   async semanticSearch(searchQuery: SearchQuery): Promise<SearchResult[]> {
     try {
-      console.log('Performing semantic search for:', searchQuery.query);
-      const results = await this.firestoreSearch(searchQuery);
+      // Ensure query is a string (defensive programming)
+      const queryStr = typeof searchQuery.query === 'string' ? searchQuery.query : String(searchQuery.query || '');
+      
+      console.log('Performing semantic search for:', queryStr);
+      
+      const normalizedSearchQuery = {
+        ...searchQuery,
+        query: queryStr
+      };
+      
+      const results = await this.firestoreSearch(normalizedSearchQuery);
       
       // Track successful search query
-      await this.trackSearchQuery(searchQuery.query, searchQuery.userId, results.length);
+      await this.trackSearchQuery(queryStr, searchQuery.userId, results.length);
       
       return results;
     } catch (error) {
@@ -117,18 +126,20 @@ export class FirestoreSearchService {
   async getSuggestions(query: string, userId: string, limit: number = 5): Promise<Suggestion[]> {
     const startTime = Date.now();
     
+    // Ensure query is a string (defensive programming)
+    const queryStr = typeof query === 'string' ? query : String(query || '');
+    const queryLower = queryStr.toLowerCase();
+    
     try {
       // Update performance stats
       this.performanceStats.totalRequests++;
       
       // If no query provided, return default suggestions (fast path)
-      if (!query || query.trim().length === 0) {
+      if (!queryStr || queryStr.trim().length === 0) {
         const suggestions = await this.getDefaultSuggestionsOptimized(userId, limit);
         this.updatePerformanceStats(startTime, true);
         return suggestions;
       }
-
-      const queryLower = query.toLowerCase();
       const cacheKey = `${userId}:${queryLower}`;
 
       // Level 1: Check exact cache hit (fastest - 1-2ms)
@@ -159,7 +170,7 @@ export class FirestoreSearchService {
       // Level 4: Parallel database queries with timeout (max 50ms)
       try {
         const suggestions = await Promise.race([
-          this.getParallelSuggestions(query, userId, limit),
+          this.getParallelSuggestions(queryStr, userId, limit),
           this.createTimeoutPromise(this.QUERY_TIMEOUT)
         ]);
 
@@ -182,7 +193,7 @@ export class FirestoreSearchService {
     } catch (error) {
       console.error('Get suggestions error:', error);
       this.updatePerformanceStats(startTime, false);
-      return this.getStaticFallbackSuggestions(query.toLowerCase(), limit);
+      return this.getStaticFallbackSuggestions(queryLower, limit);
     }
   }
 

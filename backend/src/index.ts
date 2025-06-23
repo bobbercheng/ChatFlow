@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { app } from './app';
-import { initializeWebSocket } from './websocket/websocket';
+import { initializeWebSocket } from './websocket/websocket-refactored';
 
 // Load environment variables
 dotenv.config();

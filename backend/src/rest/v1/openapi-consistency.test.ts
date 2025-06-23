@@ -121,6 +121,9 @@ describe('OpenAPI-Routes Consistency', () => {
            case 'admin':
              fullPath = `/admin${route.path}`;
              break;
+           case 'keys':
+             fullPath = `/keys${route.path}`;
+             break;
          }
         
         return {

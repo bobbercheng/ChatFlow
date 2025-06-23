@@ -538,21 +538,21 @@ resource "null_resource" "build_frontend" {
   provisioner "local-exec" {
     working_dir = "../frontend"
     command = <<-EOT
-      # Create production config file
-      cat > config.js << 'EOF'
+      # Extract version from package.json
+      FRONTEND_VERSION=$(node -pe "require('./package.json').version")
+      
+      # Build with Vite first (includes automatic cache busting)
+      npm run build
+      
+      # Create production config file in dist directory
+      cat > dist/config.js << EOF
 window.CHATFLOW_CONFIG = {
     API_BASE_URL: '${google_cloud_run_v2_service.chatflow_backend.uri}/v1',
     WS_BASE_URL: '${replace(google_cloud_run_v2_service.chatflow_backend.uri, "https://", "wss://")}/ws',
     APP_NAME: 'ChatFlow',
-    VERSION: '1.0.0'
+    VERSION: '$FRONTEND_VERSION'
 };
 EOF
-
-      # Build the frontend with cache busting
-      npm run build-with-cache-bust
-      
-      # Copy config to dist
-      cp config.js dist/
     EOT
   }
 

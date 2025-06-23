@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatFlow Encryption Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        #console-output {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 14px;
+            height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px;
+        }
+        .log-success {
+            color: #28a745;
+        }
+        .log-error {
+            color: #dc3545;
+        }
+        .log-warning {
+            color: #ffc107;
+        }
+        .log-info {
+            color: #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 ChatFlow Encryption Fix Test</h1>
+        
+        <div class="test-section info">
+            <h3>Test Overview</h3>
+            <p>This page tests the encryption compatibility fix that uses <strong>scrypt-js</strong> to match the backend's key derivation exactly.</p>
+            <p><strong>Failed Message:</strong> <code>o4D47GdlP2njJQ==</code> with keyId <code>message_key</code></p>
+        </div>
+
+        <div class="test-section">
+            <h3>Manual Test Setup</h3>
+            <p>Enter your user email and the keyId from the failed message:</p>
+            <input type="email" id="userEmail" placeholder="Enter your email" value="bobbercheng@hotmail.com" style="width: 300px; padding: 8px; margin: 5px;">
+            <input type="text" id="keyId" placeholder="Enter keyId" value="message_key" style="width: 200px; padding: 8px; margin: 5px;">
+            <br>
+            <button onclick="initializeTest()">Initialize Test</button>
+            <button onclick="runFullTest()" id="runTestBtn" disabled>Run Full Test</button>
+            <button onclick="testFailedMessage()" id="testFailedBtn" disabled>Test Failed Message</button>
+            <button onclick="clearConsole()">Clear Console</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Console Output</h3>
+            <div id="console-output"></div>
+        </div>
+
+        <div class="test-section" id="results" style="display: none;">
+            <h3>Test Results</h3>
+            <div id="result-content"></div>
+        </div>
+    </div>
+
+    <!-- Include scrypt-js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/scrypt-js/3.0.1/scrypt.min.js"></script>
+    
+    <script type="module">
+        let encryptionService = null;
+        let testResults = {};
+
+        // Console output capture
+        function addLog(message, type = 'info') {
+            const output = document.getElementById('console-output');
+            const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            output.appendChild(logEntry);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        // Override console for capturing
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+
+        console.log = (...args) => {
+            addLog(args.join(' '), 'info');
+            originalConsoleLog(...args);
+        };
+
+        console.error = (...args) => {
+            addLog(args.join(' '), 'error');
+            originalConsoleError(...args);
+        };
+
+        console.warn = (...args) => {
+            addLog(args.join(' '), 'warning');
+            originalConsoleWarn(...args);
+        };
+
+        window.clearConsole = function() {
+            document.getElementById('console-output').innerHTML = '';
+        };
+
+        // Simplified encryption service for testing
+        class TestEncryptionService {
+            constructor() {
+                this.keyCache = new Map();
+                this.keyContext = null;
+            }
+
+            async initialize(keyContext) {
+                this.keyContext = keyContext;
+                await this.deriveKeys();
+                console.log('🔐 Test Encryption Service initialized');
+                return true;
+            }
+
+            async deriveKeys() {
+                const { keyIds, userEmail } = this.keyContext;
+                const saltBuffer = new TextEncoder().encode('salt');
+
+                for (const [purpose, keyId] of Object.entries(keyIds)) {
+                    const derivedKey = await this.deriveKey(keyId, userEmail, saltBuffer);
+                    const cacheKey = `${purpose}:${userEmail}`;
+                    this.keyCache.set(cacheKey, derivedKey);
+                    console.log(`🔑 Derived key for purpose: ${purpose}`);
+                }
+            }
+
+            async deriveKey(keyId, userEmail, salt) {
+                const keyMaterial = `${keyId}:${userEmail}`;
+                console.log('🔑 [DEBUG] Key derivation:', { keyId, userEmail, keyMaterial });
+                
+                const keyMaterialBuffer = new TextEncoder().encode(keyMaterial);
+
+                // Use scrypt exactly like the backend
+                const scryptKeyBuffer = await scrypt.scrypt(
+                    keyMaterialBuffer,
+                    salt,
+                    16384, // N
+                    8,     // r
+                    1,     // p
+                    32     // dkLen
+                );
+
+                console.log('🔑 [DEBUG] Scrypt key derived, length:', scryptKeyBuffer.length);
+
+                const derivedKey = await crypto.subtle.importKey(
+                    'raw',
+                    scryptKeyBuffer,
+                    { name: 'AES-CBC', length: 256 },
+                    false,
+                    ['encrypt', 'decrypt']
+                );
+
+                console.log('🔑 [DEBUG] Key imported successfully');
+                return derivedKey;
+            }
+
+            getKey(purpose) {
+                const cacheKey = `${purpose}:${this.keyContext.userEmail}`;
+                const key = this.keyCache.get(cacheKey);
+                if (!key) {
+                    throw new Error(`Key not found for purpose: ${purpose}`);
+                }
+                return key;
+            }
+
+            async encryptMessage(data) {
+                const key = this.getKey('message');
+                const keyId = this.keyContext.keyIds.message;
+                
+                const iv = crypto.getRandomValues(new Uint8Array(16));
+                const nonceBytes = crypto.getRandomValues(new Uint8Array(16));
+                const nonce = Array.from(nonceBytes).reduce((str, byte) => 
+                    str + byte.toString(16).padStart(2, '0'), '');
+
+                const dataBuffer = new TextEncoder().encode(data);
+                const encryptedBuffer = await crypto.subtle.encrypt(
+                    { name: 'AES-CBC', iv: iv },
+                    key,
+                    dataBuffer
+                );
+
+                const encryptedData = new Uint8Array(encryptedBuffer);
+                const encryptedBase64 = btoa(String.fromCharCode.apply(null, Array.from(encryptedData)));
+                const ivBase64 = btoa(String.fromCharCode.apply(null, Array.from(iv)));
+                
+                const tagData = encryptedBase64 + keyId;
+                const tagBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(tagData));
+                const tagArray = new Uint8Array(tagBuffer);
+                const tagBase64 = btoa(String.fromCharCode.apply(null, Array.from(tagArray))).slice(0, 22);
+
+                return {
+                    data: encryptedBase64,
+                    encryption: {
+                        algorithm: 'AES-256-GCM',
+                        keyId,
+                        iv: ivBase64,
+                        tag: tagBase64,
+                        timestamp: Date.now(),
+                        nonce
+                    }
+                };
+            }
+
+            async decryptField(encryptedField) {
+                const { data, encryption } = encryptedField;
+                
+                console.log('🔓 [DEBUG] Starting decryption:', {
+                    keyId: encryption.keyId,
+                    dataLength: data.length
+                });
+
+                const purpose = 'message'; // Assume message for test
+                const key = this.getKey(purpose);
+
+                // Verify tag
+                const tagData = data + encryption.keyId;
+                const expectedTagBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(tagData));
+                const expectedTagArray = new Uint8Array(expectedTagBuffer);
+                const expectedTag = btoa(String.fromCharCode.apply(null, Array.from(expectedTagArray))).slice(0, 22);
+                
+                console.log('🔓 [DEBUG] Tag verification:', {
+                    expectedTag,
+                    actualTag: encryption.tag
+                });
+                
+                if (expectedTag !== encryption.tag) {
+                    throw new Error('Authentication tag verification failed');
+                }
+
+                // Decrypt
+                const encryptedData = Uint8Array.from(Array.from(atob(data)).map(c => c.charCodeAt(0)));
+                const iv = Uint8Array.from(Array.from(atob(encryption.iv)).map(c => c.charCodeAt(0)));
+
+                const decryptedBuffer = await crypto.subtle.decrypt(
+                    { name: 'AES-CBC', iv: iv },
+                    key,
+                    encryptedData
+                );
+
+                const result = new TextDecoder().decode(decryptedBuffer);
+                console.log('🔓 [DEBUG] Decryption successful, result:', result);
+                return result;
+            }
+        }
+
+        window.initializeTest = async function() {
+            const userEmail = document.getElementById('userEmail').value;
+            const keyId = document.getElementById('keyId').value;
+
+            if (!userEmail || !keyId) {
+                addLog('Please enter both email and keyId', 'error');
+                return;
+            }
+
+            try {
+                encryptionService = new TestEncryptionService();
+                
+                const keyContext = {
+                    keyIds: {
+                        message: keyId,
+                        search: keyId,
+                        suggestion: keyId
+                    },
+                    userEmail: userEmail,
+                    salt: 'salt'
+                };
+
+                await encryptionService.initialize(keyContext);
+                
+                document.getElementById('runTestBtn').disabled = false;
+                document.getElementById('testFailedBtn').disabled = false;
+                
+                addLog('✅ Test encryption service initialized successfully', 'success');
+                
+            } catch (error) {
+                addLog(`❌ Initialization failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.runFullTest = async function() {
+            if (!encryptionService) {
+                addLog('Please initialize test first', 'error');
+                return;
+            }
+
+            try {
+                addLog('🧪 Starting full encryption roundtrip test...', 'info');
+                
+                const testData = 'Hello, ChatFlow Test!';
+                
+                // Test encryption
+                const encrypted = await encryptionService.encryptMessage(testData);
+                addLog(`✅ Encryption successful: ${encrypted.data}`, 'success');
+                
+                // Test decryption
+                const decrypted = await encryptionService.decryptField(encrypted);
+                addLog(`✅ Decryption successful: ${decrypted}`, 'success');
+                
+                // Verify roundtrip
+                const success = decrypted === testData;
+                if (success) {
+                    addLog('🎉 Roundtrip test PASSED', 'success');
+                    testResults.roundtrip = true;
+                } else {
+                    addLog('❌ Roundtrip test FAILED - data mismatch', 'error');
+                    testResults.roundtrip = false;
+                }
+                
+            } catch (error) {
+                addLog(`❌ Full test failed: ${error.message}`, 'error');
+                testResults.roundtrip = false;
+            }
+        };
+
+        window.testFailedMessage = async function() {
+            if (!encryptionService) {
+                addLog('Please initialize test first', 'error');
+                return;
+            }
+
+            const failedMessage = {
+                data: "o4D47GdlP2njJQ==",
+                encryption: {
+                    algorithm: "AES-256-GCM",
+                    keyId: "message_key", 
+                    iv: "tUj5v654yr58CuAy",
+                    tag: "rkESBhTYSkuLSvIZ7I6yMg==",
+                    timestamp: 1750620597819,
+                    nonce: "902caf5f81d1f4d6fd4d8f381918c6f0"
+                }
+            };
+
+            try {
+                addLog('🧪 Testing the specific failed message...', 'info');
+                addLog(`Message data: ${failedMessage.data}`, 'info');
+                addLog(`Key ID: ${failedMessage.encryption.keyId}`, 'info');
+                addLog(`IV: ${failedMessage.encryption.iv}`, 'info');
+                addLog(`Tag: ${failedMessage.encryption.tag}`, 'info');
+                
+                const decrypted = await encryptionService.decryptField(failedMessage);
+                addLog(`🎉 Failed message decryption SUCCESSFUL: "${decrypted}"`, 'success');
+                testResults.failedMessage = true;
+                
+                showResults();
+                
+            } catch (error) {
+                addLog(`❌ Failed message test FAILED: ${error.message}`, 'error');
+                testResults.failedMessage = false;
+                showResults();
+            }
+        };
+
+        function showResults() {
+            const resultsDiv = document.getElementById('results');
+            const contentDiv = document.getElementById('result-content');
+            
+            let html = '<h4>Test Summary:</h4>';
+            
+            if (testResults.roundtrip !== undefined) {
+                html += `<p>Roundtrip Test: ${testResults.roundtrip ? '✅ PASSED' : '❌ FAILED'}</p>`;
+            }
+            
+            if (testResults.failedMessage !== undefined) {
+                html += `<p>Failed Message Test: ${testResults.failedMessage ? '✅ PASSED' : '❌ FAILED'}</p>`;
+            }
+            
+            if (testResults.failedMessage === true) {
+                html += '<div class="success"><strong>🎉 SUCCESS!</strong><br>The encryption fix works! Your WebSocket messages should now decrypt successfully on the server.</div>';
+            } else if (testResults.failedMessage === false) {
+                html += '<div class="error"><strong>❌ ISSUE PERSISTS</strong><br>The failed message still cannot be decrypted. Further investigation needed.</div>';
+            }
+            
+            contentDiv.innerHTML = html;
+            resultsDiv.style.display = 'block';
+        }
+
+        // Auto-log startup
+        addLog('ChatFlow Encryption Fix Test loaded', 'info');
+        addLog('Enter your email and keyId, then click "Initialize Test"', 'info');
+
+    </script>
+</body>
+</html> 

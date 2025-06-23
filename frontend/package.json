@@ -1,12 +1,14 @@
 {
   "name": "chatflow-frontend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "ChatFlow Frontend Application",
   "main": "dist/app.js",
   "scripts": {
-    "build": "tsc && cp src/*.html src/*.css dist/",
-    "build-with-cache-bust": "tsc && cp src/*.html src/*.css dist/ && node scripts/add-cache-bust.js",
-    "dev": "tsc --watch",
+    "build": "vite build",
+    "build-legacy": "tsc && cp *.html *.css dist/ 2>/dev/null || true",
+    "build-with-cache-bust": "npm run build-legacy && node scripts/add-cache-bust.js",
+    "dev": "vite",
+    "preview": "vite preview",
     "start": "npm run build && python3 -m http.server 3003 --directory dist",
     "type-check": "tsc --noEmit",
     "test": "jest",
@@ -21,7 +23,8 @@
     "jest-environment-jsdom": "^29.5.0",
     "js-yaml": "^4.1.0",
     "ts-jest": "^29.4.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
   },
   "jest": {
     "preset": "ts-jest",
@@ -38,5 +41,8 @@
     "setupFilesAfterEnv": [
       "<rootDir>/src/test-setup.ts"
     ]
+  },
+  "dependencies": {
+    "scrypt-js": "^3.0.1"
   }
 }

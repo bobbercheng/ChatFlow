@@ -63,6 +63,12 @@ variable "cors_origin" {
   default     = "*"
 }
 
+variable "admin_email" {
+  description = "Admin email address for rate limit management and administrative access"
+  type        = string
+  sensitive   = true
+}
+
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string

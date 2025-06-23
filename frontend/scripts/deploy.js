@@ -110,20 +110,25 @@ async function deployFrontend() {
         fs.writeFileSync(configPath, configContent);
         success('Frontend configuration updated with new API URLs');
         
-        // Step 3: Build frontend with cache busting
-        info('Building frontend with cache busting...');
-        execSync('npm run build-with-cache-bust', { 
+        // Step 3: Build frontend with Vite (includes automatic cache busting)
+        info('Building frontend with Vite...');
+        execSync('npm run build', { 
             cwd: path.join(__dirname, '..'),
             stdio: 'inherit' 
         });
         success('Frontend built successfully');
         
-        // Step 4: Get build timestamp
-        const buildInfoPath = path.join(__dirname, '..', 'dist', 'build-info.json');
-        const buildInfo = JSON.parse(fs.readFileSync(buildInfoPath, 'utf8'));
-        const buildTimestamp = buildInfo.buildTimestamp;
+        // Step 4: Get version and create build info (Vite doesn't generate build-info.json)
+        const packageJsonPath = path.join(__dirname, '..', 'package.json');
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+        const buildTimestamp = new Date().toISOString().replace(/[:.]/g, '').replace('T', '_').slice(0, 15);
+        const buildInfo = {
+            version: packageJson.version,
+            buildTimestamp,
+            buildDate: new Date().toISOString()
+        };
         
-        info(`Build timestamp: ${buildTimestamp}`);
+        info(`Version: ${buildInfo.version}`);
         
         // Step 5: Create dynamic config.js file
         info('Creating dynamic configuration file...');
@@ -148,26 +153,42 @@ console.log('🔧 ChatFlow Dynamic Config Loaded:', window.CHATFLOW_CONFIG);
         info('Uploading to Google Cloud Storage...');
         
         try {
-            // Upload all files
+            // Upload all files (with overwrite to handle Terraform-uploaded files)
             execSync(`gsutil -m cp -r dist/* ${bucketUrl}/`, {
                 cwd: path.join(__dirname, '..'),
                 stdio: 'inherit'
             });
             
-            // Set proper cache control headers
+            // Set proper cache control headers for different file types
+            // HTML files - short cache (5 minutes) for content updates
             execSync(`gsutil -m setmeta -h "Cache-Control:public, max-age=300" ${bucketUrl}/*.html`, {
                 stdio: 'inherit'
             });
-            execSync(`gsutil -m setmeta -h "Cache-Control:public, max-age=3600" ${bucketUrl}/*.js`, {
+            
+            // Config files - short cache (5 minutes) for dynamic configuration
+            execSync(`gsutil -m setmeta -h "Cache-Control:public, max-age=300" ${bucketUrl}/config.js`, {
                 stdio: 'inherit'
             });
-            execSync(`gsutil -m setmeta -h "Cache-Control:public, max-age=3600" ${bucketUrl}/*.css`, {
-                stdio: 'inherit'
-            });
+            
+            // Static assets - long cache (1 hour) since they have cache-busting hashes
+            try {
+                // Check if assets directory exists before setting headers
+                execSync(`gsutil ls ${bucketUrl}/assets/ > /dev/null 2>&1`, {
+                    stdio: 'pipe'
+                });
+                execSync(`gsutil -m setmeta -h "Cache-Control:public, max-age=3600" ${bucketUrl}/assets/*`, {
+                    stdio: 'inherit'
+                });
+                success('Cache headers set for static assets');
+            } catch (assetError) {
+                warning('Could not set cache headers for assets (assets may not exist or command failed)');
+                info('This is non-critical - files are still uploaded successfully');
+            }
             
         } catch (uploadError) {
             error('Failed to upload to Google Cloud Storage');
             error('Make sure you are authenticated with gcloud and have proper permissions');
+            error(`Upload error details: ${uploadError.message}`);
             throw uploadError;
         }
         
@@ -245,7 +266,7 @@ Examples:
 
 if (args.includes('--build-only')) {
     log('🔨 Building frontend only...', 'yellow');
-    execSync('npm run build-with-cache-bust', { 
+    execSync('npm run build', { 
         cwd: path.join(__dirname, '..'),
         stdio: 'inherit' 
     });

@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { body, query, param } from 'express-validator';
 import { authenticateToken, AuthenticatedRequest } from '../../../middleware/auth';
+import { messageEncryptionMiddleware } from '../../../middleware/encryption';
 import { asyncHandler } from '../../../middleware/error';
 import { validate } from '../../../middleware/validation';
 import { messageService } from '../../../services/message.service';
+import { MESSAGE_LIMITS } from '../../../config/constants';
 
 const router = Router();
 
@@ -60,6 +62,7 @@ const router = Router();
 // GET /v1/conversations/:conversationId/messages
 router.get('/:conversationId/messages',
   authenticateToken,
+  messageEncryptionMiddleware,
   param('conversationId')
     .matches(/^conv_[0-9]+_[a-z0-9]+$/)
     .withMessage('Conversation ID must be in format: conv_{timestamp}_{randomString}'),
@@ -82,10 +85,18 @@ router.get('/:conversationId/messages',
 
     const result = await messageService.getMessages(conversationId, userEmail, { page, limit });
 
-    res.status(200).json({
-      success: true,
-      data: result,
-    });
+    // Use encrypted response helper if available
+    if (res.encryptedJson) {
+      await res.encryptedJson({
+        success: true,
+        data: result,
+      });
+    } else {
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    }
   })
 );
 
@@ -128,14 +139,15 @@ router.get('/:conversationId/messages',
 // POST /v1/conversations/:conversationId/messages
 router.post('/:conversationId/messages',
   authenticateToken,
+  messageEncryptionMiddleware,
   param('conversationId')
     .matches(/^conv_[0-9]+_[a-z0-9]+$/)
     .withMessage('Conversation ID must be in format: conv_{timestamp}_{randomString}'),
   body('content')
     .notEmpty()
     .withMessage('Message content is required')
-    .isLength({ min: 1, max: 10000 })
-    .withMessage('Message content must be between 1 and 10000 characters'),
+    .isLength({ min: MESSAGE_LIMITS.MIN_CONTENT_LENGTH, max: MESSAGE_LIMITS.MAX_CONTENT_LENGTH })
+    .withMessage(`Message content must be between ${MESSAGE_LIMITS.MIN_CONTENT_LENGTH} and ${MESSAGE_LIMITS.MAX_CONTENT_LENGTH.toLocaleString()} characters`),
   body('messageType')
     .optional()
     .isIn(['TEXT', 'IMAGE', 'FILE'])
@@ -153,10 +165,18 @@ router.post('/:conversationId/messages',
       messageType,
     });
 
-    res.status(201).json({
-      success: true,
-      data: message,
-    });
+    // Use encrypted response helper if available
+    if (res.encryptedJson) {
+      await res.encryptedJson({
+        success: true,
+        data: message,
+      });
+    } else {
+      res.status(201).json({
+        success: true,
+        data: message,
+      });
+    }
   })
 );
 
@@ -213,6 +233,7 @@ router.post('/:conversationId/messages',
 // GET /v1/conversations/:conversationId/messages/:messageId
 router.get('/:conversationId/messages/:messageId',
   authenticateToken,
+  messageEncryptionMiddleware,
   param('conversationId')
     .matches(/^conv_[0-9]+_[a-z0-9]+$/)
     .withMessage('Conversation ID must be in format: conv_{timestamp}_{randomString}'),
@@ -239,10 +260,18 @@ router.get('/:conversationId/messages/:messageId',
       });
     }
 
-    res.status(200).json({
-      success: true,
-      data: message,
-    });
+    // Use encrypted response helper if available
+    if (res.encryptedJson) {
+      await res.encryptedJson({
+        success: true,
+        data: message,
+      });
+    } else {
+      res.status(200).json({
+        success: true,
+        data: message,
+      });
+    }
   })
 );
 
@@ -311,6 +340,7 @@ router.get('/:conversationId/messages/:messageId',
 // PUT /v1/conversations/:conversationId/messages/:messageId  
 router.put('/:conversationId/messages/:messageId',
   authenticateToken,
+  messageEncryptionMiddleware,
   param('conversationId')
     .matches(/^conv_[0-9]+_[a-z0-9]+$/)
     .withMessage('Conversation ID must be in format: conv_{timestamp}_{randomString}'),
@@ -320,8 +350,8 @@ router.put('/:conversationId/messages/:messageId',
   body('content')
     .notEmpty()
     .withMessage('Message content is required')
-    .isLength({ min: 1, max: 10000 })
-    .withMessage('Message content must be between 1 and 10000 characters'),
+    .isLength({ min: MESSAGE_LIMITS.MIN_CONTENT_LENGTH, max: MESSAGE_LIMITS.MAX_CONTENT_LENGTH })
+    .withMessage(`Message content must be between ${MESSAGE_LIMITS.MIN_CONTENT_LENGTH} and ${MESSAGE_LIMITS.MAX_CONTENT_LENGTH.toLocaleString()} characters`),
   validate,
   asyncHandler(async (req: AuthenticatedRequest, res: any) => {
     const userEmail = req.user!.email;
@@ -331,10 +361,18 @@ router.put('/:conversationId/messages/:messageId',
 
     const message = await messageService.updateMessage(messageId, userEmail, conversationId, content);
 
-    res.status(200).json({
-      success: true,
-      data: message,
-    });
+    // Use encrypted response helper if available
+    if (res.encryptedJson) {
+      await res.encryptedJson({
+        success: true,
+        data: message,
+      });
+    } else {
+      res.status(200).json({
+        success: true,
+        data: message,
+      });
+    }
   })
 );
 

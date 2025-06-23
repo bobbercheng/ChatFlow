@@ -65,12 +65,12 @@ export interface CreateConversationRequest {
 }
 
 export interface CreateMessageRequest {
-  content: string;
+  content: any;
   messageType?: 'TEXT' | 'IMAGE' | 'FILE';
 }
 
 export interface UpdateMessageRequest {
-  content: string;
+  content: any;
 }
 
 export interface SearchResult {
@@ -99,14 +99,105 @@ export interface SearchSuggestion {
 }
 
 export interface ClickTrackingRequest {
-  query: string;
-  suggestionText: string;
+  query: any;
+  suggestionText: any;
   suggestionType: 'recent' | 'topic' | 'user' | 'keyword' | 'completion' | 'popular' | 'trending';
 }
 
 export interface IndexMessageRequest {
   conversationId: string;
   messageId: string;
+}
+
+export interface EncryptionMetadata {
+  algorithm: 'AES-256-GCM';
+  keyId: string;
+  iv: string;
+  tag: string;
+  timestamp?: number;
+  nonce?: string;
+}
+
+export interface EncryptedField {
+  data: string;
+  encryption: EncryptionMetadata;
+}
+
+export interface KeyMetadata {
+  keyId?: string;
+  userId: string | null;
+  purpose?: 'message' | 'search' | 'suggestion' | 'general';
+  algorithm?: 'AES-256-GCM';
+  createdAt?: string;
+  expiresAt: string | null;
+  rotatedFrom: string | null;
+  isActive?: boolean;
+  version?: number;
+}
+
+export interface KeySystemHealth {
+  totalKeys?: number;
+  activeKeys?: number;
+  expiredKeys?: number;
+  keysNeedingRotation?: number;
+  lastRotation: string | null;
+}
+
+export interface KeyRotationRequest {
+  keyId?: string;
+}
+
+export interface KeyInitializeRequest {
+  adminEmail?: string;
+}
+
+export interface KeySystemStats {
+  health?: KeySystemHealth;
+  keysByPurpose?: any;
+  keysByUser?: any;
+  rotationHistory?: { from?: string; to?: string; rotatedAt?: string }[];
+}
+
+export interface CurrentKeyIds {
+  keyIds?: { message?: string; search?: string; suggestion?: string };
+  version?: string;
+  lastUpdated?: string;
+  instructions?: { usage?: string; derivation?: string; security?: string };
+}
+
+export interface SupportedAlgorithms {
+  supported?: { symmetric?: { algorithm?: string; keySize?: number; ivSize?: number; recommended?: boolean; description?: string }[] };
+  keyDerivation?: any;
+  authentication?: any;
+}
+
+export interface KeySystemVersion {
+  version?: string;
+  apiVersion?: string;
+  features?: string[];
+  status?: any;
+  compatibility?: any;
+}
+
+export interface UserKeyContext {
+  userEmail?: string;
+  keyIds?: { message?: string; search?: string; suggestion?: string };
+  derivationMethod?: string;
+  instructions?: any;
+}
+
+export interface KeyVerificationRequest {
+  testData: string;
+  purpose?: 'message' | 'search' | 'suggestion';
+}
+
+export interface KeyVerificationResult {
+  verified?: boolean;
+  originalData?: string;
+  encryptedData?: EncryptedField;
+  decryptedData?: string;
+  match?: boolean;
+  message?: string;
 }
 
 // Frontend-specific types (not in OpenAPI schema)

@@ -183,12 +183,18 @@ components:
         - content
       properties:
         content:
-          type: string
-          minLength: 1
+          oneOf:
+            - type: string
+              minLength: 1
+              description: "Plain text content (not recommended for production)"
+              example: "Hello, this is a plain text message"
+            - $ref: '#/components/schemas/EncryptedField'
+          description: "Message content - should be encrypted for privacy"
         messageType:
           type: string
           enum: [TEXT, IMAGE, FILE]
           default: TEXT
+          description: "Type of message (unencrypted for routing purposes)"
 
     SearchResult:
       type: object
@@ -292,16 +298,22 @@ components:
         - suggestionType
       properties:
         query:
-          type: string
-          description: Original search query that led to the suggestion
-          example: "lunch"
+          oneOf:
+            - type: string
+              description: "Plain text search query (not recommended for production)"
+              example: "lunch"
+            - $ref: '#/components/schemas/EncryptedField'
+          description: "Original search query that led to the suggestion - should be encrypted for privacy"
         suggestionText:
-          type: string
-          description: The suggestion that was clicked
-          example: "lunch plans"
+          oneOf:
+            - type: string
+              description: "Plain text suggestion (not recommended for production)"
+              example: "lunch plans"
+            - $ref: '#/components/schemas/EncryptedField'
+          description: "The suggestion that was clicked - should be encrypted for privacy"
         suggestionType:
           type: string
-          description: Type of suggestion that was clicked
+          description: "Type of suggestion that was clicked (unencrypted for analytics)"
           enum: [recent, topic, user, keyword, completion, popular, trending]
           example: "completion"
 
@@ -311,10 +323,14 @@ components:
         - content
       properties:
         content:
-          type: string
-          minLength: 1
-          maxLength: 10000
-          description: Updated message content
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 10000
+              description: "Plain text content (not recommended for production)"
+              example: "Updated plain text message"
+            - $ref: '#/components/schemas/EncryptedField'
+          description: "Updated message content - should be encrypted for privacy"
 
     UserRateLimit:
       type: object
@@ -440,6 +456,273 @@ components:
         userEmail:
           type: string
           format: email
+
+    # Key Management Schemas
+    KeyMetadata:
+      type: object
+      properties:
+        keyId:
+          type: string
+          description: Unique key identifier
+        userId:
+          type: string
+          format: email
+          nullable: true
+          description: User associated with the key (null for system keys)
+        purpose:
+          type: string
+          enum: [message, search, suggestion, general]
+          description: Purpose of the key
+        algorithm:
+          type: string
+          enum: [AES-256-GCM]
+          description: Encryption algorithm
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        rotatedFrom:
+          type: string
+          nullable: true
+          description: Previous key ID if this is a rotation
+        isActive:
+          type: boolean
+        version:
+          type: integer
+          minimum: 1
+
+    KeySystemHealth:
+      type: object
+      properties:
+        totalKeys:
+          type: integer
+        activeKeys:
+          type: integer
+        expiredKeys:
+          type: integer
+        keysNeedingRotation:
+          type: integer
+        lastRotation:
+          type: string
+          format: date-time
+          nullable: true
+
+    KeyRotationRequest:
+      type: object
+      properties:
+        keyId:
+          type: string
+          description: Specific key to rotate (optional)
+
+    KeyInitializeRequest:
+      type: object
+      properties:
+        adminEmail:
+          type: string
+          format: email
+          description: Admin email for key initialization
+
+    KeySystemStats:
+      type: object
+      properties:
+        health:
+          $ref: '#/components/schemas/KeySystemHealth'
+        keysByPurpose:
+          type: object
+          additionalProperties:
+            type: integer
+        keysByUser:
+          type: object
+          additionalProperties:
+            type: integer
+        rotationHistory:
+          type: array
+          items:
+            type: object
+            properties:
+              from:
+                type: string
+              to:
+                type: string
+              rotatedAt:
+                type: string
+                format: date-time
+
+    CurrentKeyIds:
+      type: object
+      properties:
+        keyIds:
+          type: object
+          properties:
+            message:
+              type: string
+            search:
+              type: string
+            suggestion:
+              type: string
+        version:
+          type: string
+        lastUpdated:
+          type: string
+          format: date-time
+        instructions:
+          type: object
+          properties:
+            usage:
+              type: string
+            derivation:
+              type: string
+            security:
+              type: string
+
+    SupportedAlgorithms:
+      type: object
+      properties:
+        supported:
+          type: object
+          properties:
+            symmetric:
+              type: array
+              items:
+                type: object
+                properties:
+                  algorithm:
+                    type: string
+                  keySize:
+                    type: integer
+                  ivSize:
+                    type: integer
+                  recommended:
+                    type: boolean
+                  description:
+                    type: string
+        keyDerivation:
+          type: object
+        authentication:
+          type: object
+
+    KeySystemVersion:
+      type: object
+      properties:
+        version:
+          type: string
+        apiVersion:
+          type: string
+        features:
+          type: array
+          items:
+            type: string
+        status:
+          type: object
+        compatibility:
+          type: object
+
+    UserKeyContext:
+      type: object
+      properties:
+        userEmail:
+          type: string
+          format: email
+        keyIds:
+          type: object
+          properties:
+            message:
+              type: string
+            search:
+              type: string
+            suggestion:
+              type: string
+        derivationMethod:
+          type: string
+        instructions:
+          type: object
+
+    KeyVerificationRequest:
+      type: object
+      required:
+        - testData
+      properties:
+        testData:
+          type: string
+          description: Plain text to encrypt and verify
+        purpose:
+          type: string
+          enum: [message, search, suggestion]
+          default: message
+
+    KeyVerificationResult:
+      type: object
+      properties:
+        verified:
+          type: boolean
+        originalData:
+          type: string
+        encryptedData:
+          $ref: '#/components/schemas/EncryptedField'
+        decryptedData:
+          type: string
+        match:
+          type: boolean
+        message:
+          type: string
+
+    # Encryption Schemas
+    EncryptionMetadata:
+      type: object
+      description: "Metadata for field-level encryption using AES-256-GCM"
+      required:
+        - algorithm
+        - keyId
+        - iv
+        - tag
+      properties:
+        algorithm:
+          type: string
+          enum: ["AES-256-GCM"]
+          description: "Encryption algorithm used"
+          example: "AES-256-GCM"
+        keyId:
+          type: string
+          description: "Client-side key identifier for key management"
+          pattern: "^[a-zA-Z0-9_-]+$"
+          example: "user_key_001"
+        iv:
+          type: string
+          format: base64
+          description: "Base64 encoded initialization vector (96-bit for GCM)"
+          example: "MTIzNDU2Nzg5MGFiY2RlZg=="
+        tag:
+          type: string
+          format: base64
+          description: "Base64 encoded authentication tag (128-bit for GCM)"
+          example: "dGFnMTIzNDU2Nzg5MGFiY2Q="
+        timestamp:
+          type: integer
+          format: int64
+          description: "Unix timestamp for replay attack prevention"
+          example: 1640995200
+        nonce:
+          type: string
+          description: "Unique nonce for each encryption operation"
+          example: "unique_nonce_001"
+
+    EncryptedField:
+      type: object
+      description: "Encrypted field with metadata"
+      required:
+        - data
+        - encryption
+      properties:
+        data:
+          type: string
+          format: base64
+          description: "Base64 encoded encrypted data"
+          example: "eyJhbGciOiJBMjU2R0NNIiwiZW5jIjoiQTI1NkdDTSJ9..."
+        encryption:
+          $ref: '#/components/schemas/EncryptionMetadata'
 
 paths:
   /auth/register:
@@ -909,11 +1192,14 @@ paths:
                 - q
               properties:
                 q:
-                  type: string
-                  minLength: 1
-                  maxLength: 500
-                  description: Search query (supports natural language)
-                  example: "lunch plans with Sarah"
+                  oneOf:
+                    - type: string
+                      minLength: 1
+                      maxLength: 500
+                      description: "Plain text search query (not recommended for production)"
+                      example: "lunch plans with Sarah"
+                    - $ref: '#/components/schemas/EncryptedField'
+                  description: "Search query - should be encrypted for privacy"
                 limit:
                   type: integer
                   minimum: 1
@@ -1018,11 +1304,14 @@ paths:
               type: object
               properties:
                 q:
-                  type: string
-                  minLength: 0
-                  maxLength: 100
-                  description: Partial search query for generating suggestions (optional)
-                  example: "lunch"
+                  oneOf:
+                    - type: string
+                      minLength: 0
+                      maxLength: 100
+                      description: "Plain text search query (not recommended for production)"
+                      example: "lunch"
+                    - $ref: '#/components/schemas/EncryptedField'
+                  description: "Partial search query - should be encrypted for privacy (optional)"
                 limit:
                   type: integer
                   minimum: 1
@@ -1795,4 +2084,493 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse' 
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /keys/current:
+    get:
+      tags:
+        - Key Coordination
+      summary: Get current keyIds for encryption (no actual keys)
+      description: Retrieve current keyIds that clients should use for encryption without exposing actual keys
+      responses:
+        '200':
+          description: Current keyIds for client-side encryption
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CurrentKeyIds'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /keys/algorithms:
+    get:
+      tags:
+        - Key Coordination
+      summary: Get supported encryption algorithms and parameters
+      description: Retrieve information about supported encryption algorithms and their parameters
+      responses:
+        '200':
+          description: Supported encryption algorithms
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SupportedAlgorithms'
+
+  /keys/version:
+    get:
+      tags:
+        - Key Coordination
+      summary: Get key system version information
+      description: Retrieve version and capability information for the key management system
+      responses:
+        '200':
+          description: Key system version and capabilities
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/KeySystemVersion'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /keys/health:
+    get:
+      tags:
+        - Key Coordination
+      summary: Get public key system health (basic info only)
+      description: Get basic health information about the key system for public consumption
+      responses:
+        '200':
+          description: Basic key system health information
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            enum: [healthy, degraded]
+                          encryption:
+                            type: string
+                            enum: [available, limited]
+                          lastUpdate:
+                            type: string
+                            format: date-time
+                          message:
+                            type: string
+        '500':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/me/keys/context:
+    get:
+      tags:
+        - Users - Key Context
+      summary: Get user's encryption key context
+      description: Retrieve user-specific key context for client-side encryption
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User's key context for encryption
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserKeyContext'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/me/keys/verify:
+    post:
+      tags:
+        - Users - Key Context
+      summary: Verify client encryption/decryption capability
+      description: Test that the client can properly encrypt and decrypt data with their keys
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeyVerificationRequest'
+      responses:
+        '200':
+          description: Encryption verification results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/KeyVerificationResult'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Verification error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/keys/health:
+    get:
+      tags:
+        - Admin - Key Management
+      summary: Get key system health status
+      description: Get detailed key system health information (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Key system health information
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/KeySystemHealth'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/keys:
+    get:
+      tags:
+        - Admin - Key Management
+      summary: List key metadata (no actual keys)
+      description: List key metadata with filtering options (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: purpose
+          in: query
+          schema:
+            type: string
+            enum: [message, search, suggestion, general]
+          description: Filter by key purpose
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: email
+          description: Filter by user ID
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+          description: Filter by active status
+        - name: includeExpired
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Include expired keys in results
+      responses:
+        '200':
+          description: List of key metadata
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/KeyMetadata'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/keys/rotate:
+    post:
+      tags:
+        - Admin - Key Management
+      summary: Trigger key rotation
+      description: Rotate a specific key or perform automatic rotation of old keys (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeyRotationRequest'
+      responses:
+        '200':
+          description: Key rotation completed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                          oldKeyId:
+                            type: string
+                            nullable: true
+                          newKeyId:
+                            type: string
+                            nullable: true
+                          newVersion:
+                            type: integer
+                            nullable: true
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Key rotation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/keys/cleanup:
+    post:
+      tags:
+        - Admin - Key Management
+      summary: Cleanup expired keys
+      description: Remove expired keys from the system (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Key cleanup completed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Key cleanup failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/keys/stats:
+    get:
+      tags:
+        - Admin - Key Management
+      summary: Get key usage statistics
+      description: Retrieve comprehensive key system statistics (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Key system statistics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/KeySystemStats'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/keys/initialize:
+    post:
+      tags:
+        - Admin - Key Management
+      summary: Initialize key management system
+      description: Initialize the key management system with default keys (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeyInitializeRequest'
+      responses:
+        '200':
+          description: Key system initialized
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                          adminEmail:
+                            type: string
+                            format: email
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Initialization failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

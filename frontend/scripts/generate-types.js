@@ -125,7 +125,21 @@ function main() {
     'SearchResponse',
     'SearchSuggestion',
     'ClickTrackingRequest',
-    'IndexMessageRequest'
+    'IndexMessageRequest',
+    // Key Management Schemas
+    'EncryptionMetadata',
+    'EncryptedField',
+    'KeyMetadata',
+    'KeySystemHealth',
+    'KeyRotationRequest',
+    'KeyInitializeRequest',
+    'KeySystemStats',
+    'CurrentKeyIds',
+    'SupportedAlgorithms',
+    'KeySystemVersion',
+    'UserKeyContext',
+    'KeyVerificationRequest',
+    'KeyVerificationResult'
   ];
   
   schemaOrder.forEach(name => {

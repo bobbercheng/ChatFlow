@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChatFlow</title>
-    <link rel="stylesheet" href="./styles.css?v=BUILD_TIMESTAMP">
+    <link rel="stylesheet" href="./styles.css">
     
     <!-- Additional styles for footer -->
     <style>
@@ -34,6 +34,8 @@
         }
     </style>
     
+    <!-- Vite handles module resolution automatically -->
+
     <!-- Environment Configuration (optional) -->
     <script>
         // Optional: Set custom configuration before app loads
@@ -61,7 +63,7 @@
            onmouseout="this.style.textDecoration='none'">
             📖 API Documentation
         </a>
-        <span> • Frontend v<span style="color: #81c784; font-weight: 500;">BUILD_TIMESTAMP</span></span>
+        <span> • Frontend v<span id="frontend-version" style="color: #81c784; font-weight: 500;">loading...</span></span>
     </footer>
     
     <!-- Configuration Panel (for runtime configuration) -->
@@ -117,6 +119,7 @@
             }
         }
         
+        
         // Update Swagger UI link based on current configuration
         function updateSwaggerLink() {
             const swaggerLink = document.getElementById('swagger-link');
@@ -152,7 +155,7 @@
             setTimeout(updateSwaggerLink, 100); // Small delay to ensure config is loaded
         });
         
-        // Override the original setChatFlowConfig to also update Swagger link
+        // Override the original setChatFlowConfig to also update Swagger link and version
         const originalSetChatFlowConfig = window.setChatFlowConfig;
         window.setChatFlowConfig = function(newConfig) {
             if (originalSetChatFlowConfig) {
@@ -160,14 +163,18 @@
             } else {
                 Object.assign((window.CHATFLOW_CONFIG = window.CHATFLOW_CONFIG || {}), newConfig);
                 updateSwaggerLink();
+                if (window.updateVersionDisplay) window.updateVersionDisplay();
                 window.location.reload(); // Reload to apply new configuration
             }
         };
     </script>
     
-    <!-- Load external configuration (if available) -->
-    <script src="./config.js?v=BUILD_TIMESTAMP" onerror="console.log('No external config.js file found, using environment detection')" onload="if (typeof updateSwaggerLink === 'function') updateSwaggerLink();"></script>
+    <!-- Load dynamic configuration from Terraform deployment -->
+    <script src="./config.js" 
+            onerror="console.log('No config.js found, using environment detection')" 
+            onload="if (typeof updateSwaggerLink === 'function') { updateSwaggerLink(); if (window.updateVersionDisplay) window.updateVersionDisplay(); }">
+    </script>
     
-    <script type="module" src="./app.js?v=BUILD_TIMESTAMP"></script>
+    <script type="module" src="./src/app.ts"></script>
 </body>
 </html> 
