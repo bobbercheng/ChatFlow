@@ -167,6 +167,7 @@ router.post('/:conversationId/messages',
 
     // Use encrypted response helper if available
     if (res.encryptedJson) {
+      res.status(201);
       await res.encryptedJson({
         success: true,
         data: message,

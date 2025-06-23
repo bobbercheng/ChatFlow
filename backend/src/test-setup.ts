@@ -36,6 +36,11 @@ const mockUser3 = {
 
 const mockUsers = [mockUser, mockUser2, mockUser3];
 
+// Dynamic storage for created data during tests
+const dynamicUsers = new Map<string, any>();
+const dynamicConversations = new Map<string, any>();
+const dynamicSubcollections = new Map<string, Map<string, any[]>>();
+
 const mockMessage = {
   id: 'msg_123456789',
   senderId: 'user@example.com',
@@ -58,10 +63,14 @@ const mockFirestoreAdapter = {
   // Basic CRUD operations
   create: jest.fn().mockImplementation((collection, id, data) => {
     if (collection === 'users') {
-      return Promise.resolve({ id, ...data });
+      const userData = { id, ...data };
+      dynamicUsers.set(id, userData);
+      return Promise.resolve(userData);
     }
     if (collection === 'conversations') {
-      return Promise.resolve({ id, ...data });
+      const conversationData = { id, ...data };
+      dynamicConversations.set(id, conversationData);
+      return Promise.resolve(conversationData);
     }
     if (collection.includes('messages')) {
       return Promise.resolve({ id, ...data });
@@ -76,19 +85,51 @@ const mockFirestoreAdapter = {
 
   findById: jest.fn().mockImplementation((collection, id) => {
     if (collection === 'users') {
+      // Check dynamic users first (created during tests)
+      const dynamicUser = dynamicUsers.get(id);
+      if (dynamicUser) {
+        return Promise.resolve(dynamicUser);
+      }
+      // Fall back to static mock users
       return Promise.resolve(mockUsers.find(u => u.email === id) || null);
     }
     if (collection === 'conversations') {
-      return Promise.resolve(mockConversation);
+      // Check dynamic conversations first (created during tests)
+      const dynamicConversation = dynamicConversations.get(id);
+      if (dynamicConversation) {
+        return Promise.resolve(dynamicConversation);
+      }
+      // Only return static mock conversation for the specific hardcoded ID
+      if (id === 'conv_1750386041311_fpmswok2p') {
+        return Promise.resolve(mockConversation);
+      }
+      // Return null for non-existent conversation IDs
+      return Promise.resolve(null);
     }
-    // Handle message subcollection queries
-    if (collection.includes('messages') && id === 'msg_1750386041311_abc123def') {
-      return Promise.resolve({
-        ...mockMessage,
-        id: 'msg_1750386041311_abc123def',
-        conversationId: 'conv_1750386041311_fpmswok2p',
-        senderDisplayName: 'Test User',
-      });
+    // Handle message subcollection queries - check dynamic storage
+    if (collection.includes('messages')) {
+      const collectionParts = collection.split('/');
+      if (collectionParts.length === 3) {
+        const [parentCollection, parentId, subcollection] = collectionParts;
+        const parentKey = `${parentCollection}/${parentId}`;
+        const parentSubcollections = dynamicSubcollections.get(parentKey);
+        if (parentSubcollections && parentSubcollections.has(subcollection)) {
+          const messages = parentSubcollections.get(subcollection)!;
+          const message = messages.find((msg: any) => msg.id === id);
+          if (message) {
+            return Promise.resolve(message);
+          }
+        }
+      }
+      // Fall back to hardcoded message for compatibility
+      if (id === 'msg_1750386041311_abc123def') {
+        return Promise.resolve({
+          ...mockMessage,
+          id: 'msg_1750386041311_abc123def',
+          conversationId: 'conv_1750386041311_fpmswok2p',
+          senderDisplayName: 'Test User',
+        });
+      }
     }
     return Promise.resolve(null);
   }),
@@ -148,7 +189,54 @@ const mockFirestoreAdapter = {
       });
     }
     if (collection.includes('messages')) {
-      // Return the test message for the test conversation
+      // Check dynamic storage first for message subcollections
+      const collectionParts = collection.split('/');
+      if (collectionParts.length === 3) {
+        const [parentCollection, parentId, subcollection] = collectionParts;
+        const parentKey = `${parentCollection}/${parentId}`;
+        
+        // Always return static mock message for hardcoded conversation ID to ensure test consistency
+        if (parentId === 'conv_1750386041311_fpmswok2p') {
+          const testMessage = {
+            ...mockMessage,
+            id: 'msg_1750386041311_abc123def',
+            conversationId: 'conv_1750386041311_fpmswok2p',
+            senderDisplayName: 'Test User',
+          };
+          return Promise.resolve({
+            data: [testMessage],
+            pagination: {
+              page: options?.page || 1,
+              limit: options?.limit || 20,
+              total: 1,
+              totalPages: 1,
+              hasNext: false,
+              hasPrev: false,
+            },
+          });
+        }
+        
+        const parentSubcollections = dynamicSubcollections.get(parentKey);
+        if (parentSubcollections && parentSubcollections.has(subcollection)) {
+          const dynamicMessages = parentSubcollections.get(subcollection)!;
+          // Only return dynamic data if it actually has messages for this conversation
+          if (dynamicMessages.length > 0) {
+            return Promise.resolve({
+              data: dynamicMessages,
+              pagination: {
+                page: options?.page || 1,
+                limit: options?.limit || 20,
+                total: dynamicMessages.length,
+                totalPages: Math.ceil(dynamicMessages.length / (options?.limit || 20)),
+                hasNext: false,
+                hasPrev: false,
+              },
+            });
+          }
+        }
+      }
+      
+      // Fall back to static mock message for compatibility
       const testMessage = {
         ...mockMessage,
         id: 'msg_1750386041311_abc123def',
@@ -188,25 +276,71 @@ const mockFirestoreAdapter = {
     if (collection === 'conversations') {
       return Promise.resolve({ ...mockConversation, ...data });
     }
-    // Handle message updates
-    if (collection.includes('messages') && id === 'msg_1750386041311_abc123def') {
-      return Promise.resolve({
-        ...mockMessage,
-        id: 'msg_1750386041311_abc123def',
-        conversationId: 'conv_1750386041311_fpmswok2p',
-        senderDisplayName: 'Test User',
-        ...data,
-      });
+    // Handle message updates - check dynamic storage
+    if (collection.includes('messages')) {
+      const collectionParts = collection.split('/');
+      if (collectionParts.length === 3) {
+        const [parentCollection, parentId, subcollection] = collectionParts;
+        const parentKey = `${parentCollection}/${parentId}`;
+        const parentSubcollections = dynamicSubcollections.get(parentKey);
+        if (parentSubcollections && parentSubcollections.has(subcollection)) {
+          const messages = parentSubcollections.get(subcollection)!;
+          const messageIndex = messages.findIndex((msg: any) => msg.id === id);
+          if (messageIndex >= 0) {
+            const updatedMessage = { ...messages[messageIndex], ...data };
+            messages[messageIndex] = updatedMessage;
+            return Promise.resolve(updatedMessage);
+          }
+        }
+      }
+      // Fall back to hardcoded message for compatibility
+      if (id === 'msg_1750386041311_abc123def') {
+        return Promise.resolve({
+          ...mockMessage,
+          id: 'msg_1750386041311_abc123def',
+          conversationId: 'conv_1750386041311_fpmswok2p',
+          senderDisplayName: 'Test User',
+          ...data,
+        });
+      }
     }
     return Promise.resolve({ id, ...data });
   }),
 
   delete: jest.fn().mockImplementation((collection, id) => {
-    // Handle message deletions
-    if (collection.includes('messages') && id === 'msg_1750386041311_abc123def') {
-      return Promise.resolve(true);
+    if (collection === 'conversations') {
+      // Check if conversation exists in dynamic storage
+      const dynamicConversation = dynamicConversations.get(id);
+      if (dynamicConversation) {
+        dynamicConversations.delete(id);
+        return true;
+      }
+      // Check if it's the hardcoded conversation
+      if (id === 'conv_1750386041311_fpmswok2p') {
+        return true;
+      }
+      // Return false for non-existent conversations
+      return false;
     }
-    return Promise.resolve(true);
+    // Handle subcollection paths and messages
+    if (collection.includes('/')) {
+      const collectionParts = collection.split('/');
+      if (collectionParts.length === 3) {
+        const [parentCollection, parentId, subcollection] = collectionParts;
+        const parentKey = `${parentCollection}/${parentId}`;
+        const parentSubcollections = dynamicSubcollections.get(parentKey);
+        if (parentSubcollections && parentSubcollections.has(subcollection)) {
+          const items = parentSubcollections.get(subcollection)!;
+          const itemIndex = items.findIndex((item: any) => item.id === id || item.userId === id);
+          if (itemIndex >= 0) {
+            items.splice(itemIndex, 1);
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+    return true;
   }),
 
   // Query operations
@@ -237,7 +371,16 @@ const mockFirestoreAdapter = {
   findWhereArrayContainsAny: jest.fn().mockResolvedValue([]),
 
   // Subcollection operations
-  findInSubcollection: jest.fn().mockImplementation((_parentCollection, _parentId, subcollection, _options) => {
+  findInSubcollection: jest.fn().mockImplementation((parentCollection, parentId, subcollection, _options) => {
+    // Check dynamic storage first
+    const parentKey = `${parentCollection}/${parentId}`;
+    const parentSubcollections = dynamicSubcollections.get(parentKey);
+    if (parentSubcollections && parentSubcollections.has(subcollection)) {
+      const dynamicData = parentSubcollections.get(subcollection)!;
+      return Promise.resolve(dynamicData);
+    }
+    
+    // Fall back to static mock data
     if (subcollection === 'participants') {
       return Promise.resolve([
         { userId: 'user@example.com', role: ConversationParticipantRole.ADMIN, joinedAt: new Date() },
@@ -253,8 +396,20 @@ const mockFirestoreAdapter = {
     return Promise.resolve([]);
   }),
 
-  createInSubcollection: jest.fn().mockImplementation((_parentCollection, _parentId, _subcollection, id, data) => {
-    return Promise.resolve({ id, ...data });
+  createInSubcollection: jest.fn().mockImplementation((parentCollection, parentId, subcollection, id, data) => {
+    // Create dynamic storage for subcollections
+    const parentKey = `${parentCollection}/${parentId}`;
+    if (!dynamicSubcollections.has(parentKey)) {
+      dynamicSubcollections.set(parentKey, new Map());
+    }
+    const parentSubcollections = dynamicSubcollections.get(parentKey)!;
+    if (!parentSubcollections.has(subcollection)) {
+      parentSubcollections.set(subcollection, []);
+    }
+    const subcollectionData = parentSubcollections.get(subcollection)!;
+    const newItem = { id, ...data };
+    subcollectionData.push(newItem);
+    return Promise.resolve(newItem);
   }),
 
   // Batch operations
@@ -263,7 +418,37 @@ const mockFirestoreAdapter = {
   // Transaction operations
   runTransaction: jest.fn().mockImplementation(async (callback) => {
     const mockTransaction = {
-      create: jest.fn().mockImplementation((_collection, id, data) => ({ id, ...data })),
+      create: jest.fn().mockImplementation((collection, id, data) => {
+        // Store in dynamic storage like the main create method
+        if (collection === 'users') {
+          const userData = { id, ...data };
+          dynamicUsers.set(id, userData);
+          return userData;
+        }
+        if (collection === 'conversations') {
+          const conversationData = { id, ...data };
+          dynamicConversations.set(id, conversationData);
+          return conversationData;
+        }
+        // Handle subcollection creation (like participants)
+        const collectionParts = collection.split('/');
+        if (collectionParts.length === 3) {
+          const [parentCollection, parentId, subcollection] = collectionParts;
+          const parentKey = `${parentCollection}/${parentId}`;
+          if (!dynamicSubcollections.has(parentKey)) {
+            dynamicSubcollections.set(parentKey, new Map());
+          }
+          const parentSubcollections = dynamicSubcollections.get(parentKey)!;
+          if (!parentSubcollections.has(subcollection)) {
+            parentSubcollections.set(subcollection, []);
+          }
+          const subcollectionData = parentSubcollections.get(subcollection)!;
+          const newItem = { id, ...data };
+          subcollectionData.push(newItem);
+          return newItem;
+        }
+        return { id, ...data };
+      }),
       update: jest.fn().mockImplementation((_collection, id, data) => ({ id, ...data })),
       delete: jest.fn().mockResolvedValue(true),
     };
@@ -422,15 +607,24 @@ class MockTokenExpiredError extends Error {
   }
 }
 
+// Store token-to-email mapping for tests
+const tokenEmailMap = new Map<string, string>();
+
 jest.mock('jsonwebtoken', () => ({
-  sign: jest.fn(() => 'mock-jwt-token'),
-  verify: jest.fn((token) => {
-    if (token === 'mock-jwt-token') {
-      return { email: 'user@example.com' };
-    }
+  sign: jest.fn((payload: { email: string }) => {
+    const token = `mock-jwt-token-${Math.random().toString(36).substr(2, 9)}`;
+    tokenEmailMap.set(token, payload.email);
+    return token;
+  }),
+  verify: jest.fn((token: string) => {
     if (token === 'invalid-token') {
       throw new MockJsonWebTokenError('Invalid token');
     }
+    const email = tokenEmailMap.get(token);
+    if (email) {
+      return { email };
+    }
+    // Fallback for any untracked tokens
     return { email: 'user@example.com' };
   }),
   JsonWebTokenError: MockJsonWebTokenError,

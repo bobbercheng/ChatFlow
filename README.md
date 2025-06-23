@@ -303,13 +303,18 @@ A simple frontend demo is available at `frontend/` directory. It provides:
 - `npm run docker:deploy` - Build and deploy with Docker
 
 ### TODO
-- Add more error handling and limit message size.
-- Message encryption from server to peers.
-- Enable message search with Firestore full-text search.
-- Implement Firestore composite indexes for complex queries.
+- Add more error handling and limit message size. - Done, max message size is 2M.
+- Message encryption from server to peers. - Done, refer to frontend/ENCRYPTION_README.md
+- Enable message search with Firestore full-text search. - Done
+- Implement Firestore composite indexes for complex queries. - Not yet
 - Add Cloud Functions for background processing.
 - Load balance by conversation id with Cloud Run.
 - Add CICD for deployment to Google Cloud Platform.
 - Support image, binary files with Google Cloud Storage.
 - Add Cloud Monitoring and Cloud Trace for performance monitoring.
-- Migrate to production Firestore from emulator.  
+- Migrate to production Firestore from emulator. - Done
+
+# Roadmap
+- POC to delegate a participant in a conversation to local OpenAI compatible LLM.
+- Register bot user with webhook.
+- SSO login.

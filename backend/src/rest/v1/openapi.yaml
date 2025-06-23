@@ -177,6 +177,17 @@ components:
             format: email
           minItems: 1
 
+    UpdateConversationRequest:
+      type: object
+      properties:
+        participantEmails:
+          type: array
+          items:
+            type: string
+            format: email
+          minItems: 1
+          description: "Updated list of participant emails (creator will be automatically included)"
+
     CreateMessageRequest:
       type: object
       required:
@@ -887,6 +898,126 @@ paths:
                     properties:
                       data:
                         $ref: '#/components/schemas/Conversation'
+
+  /conversations/{conversationId}:
+    get:
+      tags:
+        - Conversations
+      summary: Get a specific conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^conv_[0-9]+_[a-z0-9]+$'
+            description: 'Conversation ID in format: conv_{timestamp}_{randomString}'
+            example: 'conv_1750386041311_fpmswok2p'
+      responses:
+        '200':
+          description: Conversation retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Conversation'
+        '404':
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Conversations
+      summary: Update a conversation
+      description: Only the conversation creator can modify the conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^conv_[0-9]+_[a-z0-9]+$'
+            description: 'Conversation ID in format: conv_{timestamp}_{randomString}'
+            example: 'conv_1750386041311_fpmswok2p'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateConversationRequest'
+      responses:
+        '200':
+          description: Conversation updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Conversation'
+        '403':
+          description: Only the conversation creator can modify this conversation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Conversations
+      summary: Delete a conversation
+      description: Only administrators can delete conversations
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^conv_[0-9]+_[a-z0-9]+$'
+            description: 'Conversation ID in format: conv_{timestamp}_{randomString}'
+            example: 'conv_1750386041311_fpmswok2p'
+      responses:
+        '204':
+          description: Conversation deleted
+        '403':
+          description: Only administrators can delete conversations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /conversations/{conversationId}/messages:
     get:

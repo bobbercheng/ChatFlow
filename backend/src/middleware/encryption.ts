@@ -164,9 +164,12 @@ export function createEncryptionMiddleware(options: {
       if (encryptResponses && !req.skipEncryption) {
         // Add encrypted response helper to response object
         (res as any).encryptedJson = async function(body: any) {
-          if (body && typeof body === 'object' && userEmail) {
+          // Get user email dynamically from request (not from closure)
+          const currentUserEmail = (req as any).user?.email;
+          
+          if (body && typeof body === 'object' && currentUserEmail) {
             try {
-              await req.responseEncryption!.encryptResponseFields(body, userEmail);
+              await req.responseEncryption!.encryptResponseFields(body, currentUserEmail);
               return res.json(body);
             } catch (error) {
               console.error('Response encryption failed:', error);
@@ -179,6 +182,7 @@ export function createEncryptionMiddleware(options: {
               });
             }
           } else {
+            console.log('Encryption fallback - body:', !!body, 'userEmail:', currentUserEmail);
             return res.json(body);
           }
         };
@@ -233,6 +237,7 @@ export class ResponseEncryptionService {
     'suggestion',       // Alternative suggestion field name
     'text',            // Generic text content
     'body',            // Message body
+    'message',          // Response messages (e.g., "Suggestion click tracked successfully")
     'rawContent',      // Raw content in search results
     'semanticContent', // Semantic content in search
     'highlightedContent' // Highlighted search content
@@ -293,6 +298,7 @@ export class ResponseEncryptionService {
       case 'suggestion':
         return 'suggestion_key';
       case 'text':
+      case 'message':
         return 'text_key';
       case 'rawContent':
       case 'semanticContent':

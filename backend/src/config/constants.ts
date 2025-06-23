@@ -3,6 +3,15 @@
  * Central location for all application-wide constants
  */
 
+// Authorization Configuration
+export const AUTHORIZATION = {
+  /**
+   * Admin email address with elevated privileges
+   * Can be overridden via ADMIN_EMAIL environment variable
+   */
+  ADMIN_EMAIL: process.env['ADMIN_EMAIL'] || 'admin@chatflow.app',
+} as const;
+
 // Message Configuration
 export const MESSAGE_LIMITS = {
   /**
@@ -63,6 +72,7 @@ export const WEBSOCKET_LIMITS = {
 
 // Export all constants as a single object for convenience
 export const CONSTANTS = {
+  AUTHORIZATION,
   MESSAGE_LIMITS,
   SEARCH_LIMITS,
   RATE_LIMITS,

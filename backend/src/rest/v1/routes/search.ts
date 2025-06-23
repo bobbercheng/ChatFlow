@@ -1,9 +1,14 @@
 import express from 'express';
 import { body, query, validationResult } from 'express-validator';
 import { authenticateToken, AuthenticatedRequest } from '../../../middleware/auth';
-import { decryptionMiddleware } from '../../../middleware/encryption';
+import { decryptionMiddleware, messageEncryptionMiddleware } from '../../../middleware/encryption';
 import { searchService, SearchQuery } from '../../../services/search.service';
 import { Response } from 'express';
+
+// Extended response type for encryption middleware
+interface AuthenticatedResponse extends Response {
+  encryptedJson?: (data: any) => Promise<void>;
+}
 
 const router = express.Router();
 
@@ -167,6 +172,7 @@ router.get('/conversations',
 router.post('/conversations', 
   authenticateToken,
   decryptionMiddleware,
+  messageEncryptionMiddleware,
   [
     body('q')
       .notEmpty()
@@ -177,7 +183,7 @@ router.post('/conversations',
       .isInt({ min: 1, max: 50 })
       .withMessage('Limit must be between 1 and 50'),
   ],
-  async (req: AuthenticatedRequest, res: Response) => {
+  async (req: AuthenticatedRequest, res: AuthenticatedResponse) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -208,15 +214,28 @@ router.post('/conversations',
       // Ensure results is an array
       const searchResults = Array.isArray(results) ? results : [];
 
-      return res.json({
-        success: true,
-        data: {
-          results: searchResults,
-          query: searchQuery.query,
-          totalResults: searchResults.length,
-          searchTime,
-        },
-      });
+      // Use encrypted response helper if available
+      if (res.encryptedJson) {
+        return await res.encryptedJson({
+          success: true,
+          data: {
+            results: searchResults,
+            query: searchQuery.query,
+            totalResults: searchResults.length,
+            searchTime,
+          },
+        });
+      } else {
+        return res.json({
+          success: true,
+          data: {
+            results: searchResults,
+            query: searchQuery.query,
+            totalResults: searchResults.length,
+            searchTime,
+          },
+        });
+      }
 
     } catch (error) {
       // Only log in non-test environments to reduce test output verbosity
@@ -372,6 +391,7 @@ router.get('/suggestions',
 router.post('/suggestions',
   authenticateToken,
   decryptionMiddleware,
+  messageEncryptionMiddleware,
   [
     body('q')
       .optional()
@@ -382,7 +402,7 @@ router.post('/suggestions',
       .isInt({ min: 1, max: 10 })
       .withMessage('Limit must be between 1 and 10'),
   ],
-  async (req: AuthenticatedRequest, res: Response) => {
+  async (req: AuthenticatedRequest, res: AuthenticatedResponse) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -402,15 +422,28 @@ router.post('/suggestions',
       // Get intelligent suggestions using the search service
       const suggestions = await searchService.getSuggestions(query, userId, limit);
 
-      return res.json({
-        success: true,
-        data: suggestions.map(s => ({
-          suggestion: s.text,
-          type: s.type,
-          count: s.frequency || 1,
-          category: s.category,
-        })),
-      });
+      // Use encrypted response helper if available
+      if (res.encryptedJson) {
+        return await res.encryptedJson({
+          success: true,
+          data: suggestions.map(s => ({
+            suggestion: s.text,
+            type: s.type,
+            count: s.frequency || 1,
+            category: s.category,
+          })),
+        });
+      } else {
+        return res.json({
+          success: true,
+          data: suggestions.map(s => ({
+            suggestion: s.text,
+            type: s.type,
+            count: s.frequency || 1,
+            category: s.category,
+          })),
+        });
+      }
 
     } catch (error) {
       // Only log in non-test environments to reduce test output verbosity
@@ -580,6 +613,8 @@ router.post('/index-all',
  */
 router.post('/suggestions/click',
   authenticateToken,
+  decryptionMiddleware,
+  messageEncryptionMiddleware,
   [
     body('query')
       .notEmpty()
@@ -591,7 +626,7 @@ router.post('/suggestions/click',
       .notEmpty()
       .withMessage('Suggestion type is required'),
   ],
-  async (req: AuthenticatedRequest, res: Response) => {
+  async (req: AuthenticatedRequest, res: AuthenticatedResponse) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -610,12 +645,22 @@ router.post('/suggestions/click',
       // Track the suggestion click
       await searchService.trackSuggestionClick(query, suggestionText, suggestionType, userId);
 
-      return res.json({
-        success: true,
-        data: {
-          message: 'Suggestion click tracked successfully'
-        }
-      });
+      // Use encrypted response helper if available
+      if (res.encryptedJson) {
+        return await res.encryptedJson({
+          success: true,
+          data: {
+            message: 'Suggestion click tracked successfully'
+          }
+        });
+      } else {
+        return res.json({
+          success: true,
+          data: {
+            message: 'Suggestion click tracked successfully'
+          }
+        });
+      }
 
     } catch (error) {
       // Only log in non-test environments to reduce test output verbosity

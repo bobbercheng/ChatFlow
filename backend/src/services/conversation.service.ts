@@ -1,6 +1,7 @@
 import { HttpError } from '../middleware/error';
 import { databaseAdapter } from '../adapters';
 import { PaginationOptions, PaginationResult } from '../database/adapters/base.adapter';
+import { AUTHORIZATION } from '../config/constants';
 import { 
   COLLECTIONS, 
   FirestoreConversation, 
@@ -11,6 +12,10 @@ import {
   ConversationWithParticipants,
   CreateConversationData
 } from '../types/firestore';
+
+export interface UpdateConversationData {
+  participantEmails?: string[];
+}
 
 export class ConversationServiceFirestore {
   async createConversation(data: CreateConversationData): Promise<ConversationWithParticipants> {
@@ -209,6 +214,143 @@ export class ConversationServiceFirestore {
     }
 
     return conversation.participantEmails.includes(userEmail);
+  }
+
+  async updateConversation(
+    conversationId: string, 
+    userEmail: string, 
+    data: UpdateConversationData
+  ): Promise<ConversationWithParticipants> {
+    const conversation = await databaseAdapter.findById<FirestoreConversation>(
+      COLLECTIONS.CONVERSATIONS,
+      conversationId
+    );
+
+    if (!conversation) {
+      throw new HttpError(404, 'Conversation not found', 'CONVERSATION_NOT_FOUND');
+    }
+
+    // Only the creator can modify the conversation
+    if (conversation.createdBy !== userEmail) {
+      throw new HttpError(403, 'Only the conversation creator can modify this conversation', 'ACCESS_DENIED');
+    }
+
+    // If updating participants, validate all participants exist
+    if (data.participantEmails) {
+      // Ensure creator is always included
+      if (!data.participantEmails.includes(conversation.createdBy)) {
+        data.participantEmails.push(conversation.createdBy);
+      }
+
+      // Remove duplicates
+      const uniqueParticipants = [...new Set(data.participantEmails)];
+
+      // Validate all participants exist
+      const existingUsers = await Promise.all(
+        uniqueParticipants.map(email => 
+          databaseAdapter.findById<FirestoreUser>(COLLECTIONS.USERS, email)
+        )
+      );
+
+      const nonExistentUsers = uniqueParticipants.filter((_email, index) => !existingUsers[index]);
+
+      if (nonExistentUsers.length > 0) {
+        throw new HttpError(400, `Users not found: ${nonExistentUsers.join(', ')}`, 'USERS_NOT_FOUND');
+      }
+
+      // Update conversation and participants in transaction
+      return await databaseAdapter.runTransaction(async (transaction) => {
+        // Update conversation
+        const updatedConversation: Partial<FirestoreConversation> = {
+          participantEmails: uniqueParticipants,
+          updatedAt: new Date(),
+        };
+
+        transaction.update<FirestoreConversation>(COLLECTIONS.CONVERSATIONS, conversationId, updatedConversation);
+
+        // Remove old participants
+        const oldParticipants = await databaseAdapter.findInSubcollection<FirestoreConversationParticipant>(
+          COLLECTIONS.CONVERSATIONS,
+          conversationId,
+          COLLECTIONS.PARTICIPANTS
+        );
+
+        for (const participant of oldParticipants) {
+          transaction.delete(`${COLLECTIONS.CONVERSATIONS}/${conversationId}/${COLLECTIONS.PARTICIPANTS}`, participant.userId);
+        }
+
+        // Add new participants
+        for (const email of uniqueParticipants) {
+          const participantData: FirestoreConversationParticipant = {
+            userId: email,
+            joinedAt: new Date(),
+            role: email === conversation.createdBy ? ConversationParticipantRole.ADMIN : ConversationParticipantRole.MEMBER,
+          };
+
+          transaction.create<FirestoreConversationParticipant>(
+            `${COLLECTIONS.CONVERSATIONS}/${conversationId}/${COLLECTIONS.PARTICIPANTS}`,
+            email,
+            participantData
+          );
+        }
+
+        // Return updated conversation with participants
+        const participants = uniqueParticipants.map(email => ({
+          userId: email,
+          joinedAt: new Date(),
+          role: email === conversation.createdBy ? ConversationParticipantRole.ADMIN : ConversationParticipantRole.MEMBER,
+        }));
+
+        return {
+          ...conversation,
+          ...updatedConversation,
+          participants,
+        };
+      });
+    }
+
+    // If no participants update, just update the conversation
+    const updatedData: Partial<FirestoreConversation> = {
+      updatedAt: new Date(),
+    };
+
+    await databaseAdapter.update<FirestoreConversation>(COLLECTIONS.CONVERSATIONS, conversationId, updatedData);
+
+    // Get updated conversation with participants
+    return this.getConversationById(conversationId, userEmail);
+  }
+
+  async deleteConversation(conversationId: string, userEmail: string): Promise<void> {
+    const conversation = await databaseAdapter.findById<FirestoreConversation>(
+      COLLECTIONS.CONVERSATIONS,
+      conversationId
+    );
+
+    if (!conversation) {
+      throw new HttpError(404, 'Conversation not found', 'CONVERSATION_NOT_FOUND');
+    }
+
+    // Only admin can delete conversations
+    if (userEmail !== AUTHORIZATION.ADMIN_EMAIL) {
+      throw new HttpError(403, 'Only administrators can delete conversations', 'ACCESS_DENIED');
+    }
+
+    // Delete conversation and all related data in transaction
+    await databaseAdapter.runTransaction(async (transaction) => {
+      // Delete all participants
+      const participants = await databaseAdapter.findInSubcollection<FirestoreConversationParticipant>(
+        COLLECTIONS.CONVERSATIONS,
+        conversationId,
+        COLLECTIONS.PARTICIPANTS
+      );
+
+      for (const participant of participants) {
+        transaction.delete(`${COLLECTIONS.CONVERSATIONS}/${conversationId}/${COLLECTIONS.PARTICIPANTS}`, participant.userId);
+      }
+
+      // Delete the conversation
+      transaction.delete(COLLECTIONS.CONVERSATIONS, conversationId);
+    });
   }
 }
 

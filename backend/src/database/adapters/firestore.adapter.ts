@@ -8,22 +8,22 @@ import {
   DatabaseTransaction 
 } from './base.adapter';
 
+// Shared mock database storage across all instances
+const sharedMockDb: Map<string, Map<string, any>> = new Map();
+let sharedAutoIdCounter = 1;
+
 // Mock Firestore adapter for development - will be replaced with real implementation
 export class FirestoreAdapter implements DatabaseAdapter {
   
-  // Mock database storage: collection -> document id -> data
-  private mockDb: Map<string, Map<string, any>> = new Map();
-  private autoIdCounter = 1;
-  
   private getCollection(collectionName: string): Map<string, any> {
-    if (!this.mockDb.has(collectionName)) {
-      this.mockDb.set(collectionName, new Map());
+    if (!sharedMockDb.has(collectionName)) {
+      sharedMockDb.set(collectionName, new Map());
     }
-    return this.mockDb.get(collectionName)!;
+    return sharedMockDb.get(collectionName)!;
   }
   
   private generateId(): string {
-    return `mock_id_${this.autoIdCounter++}`;
+    return `mock_id_${sharedAutoIdCounter++}`;
   }
   
   async create<T>(collection: string, id: string, data: T): Promise<T> {

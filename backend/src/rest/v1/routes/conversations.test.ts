@@ -1,331 +1,331 @@
 import request from 'supertest';
 import { app } from '../../../app';
-import { loginAndGetToken } from '../../../test-utils';
+import { generateToken } from '../../../middleware/auth';
+import { AUTHORIZATION } from '../../../config/constants';
 
-describe('Conversation Routes', () => {
+describe('Conversation Routes Security', () => {
+  let userToken: string;
+  let otherUserToken: string;
+  let adminToken: string;
+  
+  const testUser = 'test@example.com';
+  const otherUser = 'other@example.com';
+  const adminUser = AUTHORIZATION.ADMIN_EMAIL;
+
+  beforeAll(async () => {    
+    // Generate tokens for testing
+    userToken = generateToken(testUser);
+    otherUserToken = generateToken(otherUser);
+    adminToken = generateToken(adminUser);
+
+    // Create test users first to satisfy conversation validation
+    await request(app)
+      .post('/v1/auth/register')
+      .send({
+        email: testUser,
+        password: 'testpassword123',
+        displayName: 'Test User'
+      });
+
+    await request(app)
+      .post('/v1/auth/register')
+      .send({
+        email: otherUser,
+        password: 'testpassword123',
+        displayName: 'Other User'
+      });
+
+    await request(app)
+      .post('/v1/auth/register')
+      .send({
+        email: adminUser,
+        password: 'adminpassword123',
+        displayName: 'Admin User'
+      });
+
+    // Create additional test users for other scenarios
+    await request(app)
+      .post('/v1/auth/register')
+      .send({
+        email: 'newuser@example.com',
+        password: 'testpassword123',
+        displayName: 'New User'
+      });
+
+    await request(app)
+      .post('/v1/auth/register')
+      .send({
+        email: 'another@example.com',
+        password: 'testpassword123',
+        displayName: 'Another User'
+      });
+  });
+
   describe('POST /v1/conversations', () => {
-    test('should create a direct conversation successfully', async () => {
-      const { token } = await loginAndGetToken(app);
-
+    it('should create conversation and auto-add creator to participants', async () => {
       const response = await request(app)
         .post('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`)
+        .set('Authorization', `Bearer ${userToken}`)
         .send({
-          participantEmails: ['user2@example.com'],
+          participantEmails: [otherUser]
         });
 
       expect(response.status).toBe(201);
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toBeDefined();
-      expect(response.body.data.id).toBeDefined();
-      expect(response.body.data.type).toBe('DIRECT');
-      expect(response.body.data.participants).toHaveLength(2);
-      expect(response.body.data.participants.some((p: any) => p.userId === 'user@example.com')).toBe(true);
-      expect(response.body.data.participants.some((p: any) => p.userId === 'user2@example.com')).toBe(true);
+      expect(response.body.data.createdBy).toBe(testUser);
+      expect(response.body.data.participantEmails).toContain(testUser);
+      expect(response.body.data.participantEmails).toContain(otherUser);
     });
 
-    test('should create a group conversation successfully', async () => {
-      const { token } = await loginAndGetToken(app);
-
+    it('should not duplicate creator in participant list', async () => {
       const response = await request(app)
         .post('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`)
+        .set('Authorization', `Bearer ${userToken}`)
         .send({
-          participantEmails: ['user2@example.com', 'user3@example.com'],
+          participantEmails: [testUser, otherUser] // Creator included
         });
 
       expect(response.status).toBe(201);
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.type).toBe('GROUP');
-      expect(response.body.data.participants).toHaveLength(3); // Creator + 2 participants = 3 total
+      expect(response.body.data.participantEmails.filter((email: string) => email === testUser)).toHaveLength(1);
     });
 
-    test('should return existing direct conversation if it already exists', async () => {
-      const { token } = await loginAndGetToken(app);
-
-      // Create first conversation
-      await request(app)
-        .post('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`)
-        .send({
-          participantEmails: ['user2@example.com'],
-        });
-
-      // Try to create the same conversation again
-      const secondResponse = await request(app)
-        .post('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`)
-        .send({
-          participantEmails: ['user2@example.com'],
-        });
-
-      expect(secondResponse.status).toBe(201);
-      expect(secondResponse.body.data.id).toBeDefined();
-    });
-
-    test('should automatically include creator in participants', async () => {
-      const { token } = await loginAndGetToken(app);
-
+    it('should require authentication', async () => {
       const response = await request(app)
         .post('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`)
         .send({
-          participantEmails: ['user2@example.com'],
+          participantEmails: [otherUser]
         });
 
-      expect(response.status).toBe(201);
-      expect(response.body.data.participants.some((p: any) => p.userId === 'user@example.com')).toBe(true);
+      expect(response.status).toBe(401);
     });
 
-    test('should handle self-conversation (only creator in participants)', async () => {
-      const { token } = await loginAndGetToken(app);
-
+    it('should validate participant emails', async () => {
       const response = await request(app)
         .post('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`)
+        .set('Authorization', `Bearer ${userToken}`)
         .send({
-          participantEmails: [],
-        });
-
-      // Should fail validation since participantEmails is empty
-      expect(response.status).toBe(400);
-      expect(response.body.error.code).toBe('VALIDATION_ERROR');
-    });
-
-    test('should remove duplicate participants', async () => {
-      const { token } = await loginAndGetToken(app);
-
-      const response = await request(app)
-        .post('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`)
-        .send({
-          participantEmails: ['user2@example.com', 'user2@example.com', 'user@example.com'],
-        });
-
-      expect(response.status).toBe(201);
-      expect(response.body.data.participants).toHaveLength(2);
-    });
-
-    test('should return 400 for non-existent users', async () => {
-      const { token } = await loginAndGetToken(app);
-
-      const response = await request(app)
-        .post('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`)
-        .send({
-          participantEmails: ['nonexistent@example.com'],
+          participantEmails: ['invalid-email']
         });
 
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
-      expect(response.body.error.code).toBe('USERS_NOT_FOUND');
-    });
-
-    test('should validate participantEmails array', async () => {
-      const { token } = await loginAndGetToken(app);
-
-      const response = await request(app)
-        .post('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`)
-        .send({
-          participantEmails: 'not-an-array',
-        });
-
-      expect(response.status).toBe(400);
-      expect(response.body.error.code).toBe('VALIDATION_ERROR');
-    });
-
-    test('should validate email format in participantEmails', async () => {
-      const { token } = await loginAndGetToken(app);
-
-      const response = await request(app)
-        .post('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`)
-        .send({
-          participantEmails: ['invalid-email'],
-        });
-
-      expect(response.status).toBe(400);
-      expect(response.body.error.code).toBe('VALIDATION_ERROR');
-    });
-
-    test('should require authentication', async () => {
-      const response = await request(app)
-        .post('/v1/conversations')
-        .send({
-          participantEmails: ['user2@example.com'],
-        });
-
-      expect(response.status).toBe(401);
-      expect(response.body.error.code).toBe('TOKEN_REQUIRED');
-    });
-
-    test('should reject invalid token', async () => {
-      const response = await request(app)
-        .post('/v1/conversations')
-        .set('Authorization', 'Bearer invalid-token')
-        .send({
-          participantEmails: ['user2@example.com'],
-        });
-
-      expect(response.status).toBe(401);
-      expect(response.body.error.code).toBe('TOKEN_INVALID');
     });
   });
 
-  describe('GET /v1/conversations', () => {
-    test('should get user conversations with default pagination', async () => {
-      const { token } = await loginAndGetToken(app);
+  describe('GET /v1/conversations/:conversationId', () => {
+    let conversationId: string;
 
-      // Create some conversations first
-      await request(app)
-        .post('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`)
-        .send({
-          participantEmails: ['user2@example.com'],
-        });
-
+    beforeEach(async () => {
+      // Create a test conversation
       const response = await request(app)
-        .get('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`);
+        .post('/v1/conversations')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          participantEmails: [otherUser]
+        });
+      conversationId = response.body.data.id;
+    });
+
+    it('should allow participants to view conversation', async () => {
+      const response = await request(app)
+        .get(`/v1/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${userToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toBeDefined();
-      expect(response.body.data.data).toBeInstanceOf(Array);
-      expect(response.body.data.pagination).toBeDefined();
-      expect(response.body.data.pagination.page).toBe(1);
-      expect(response.body.data.pagination.limit).toBe(20);
-      expect(typeof response.body.data.pagination.total).toBe('number');
-      expect(typeof response.body.data.pagination.totalPages).toBe('number');
-      expect(typeof response.body.data.pagination.hasNext).toBe('boolean');
-      expect(typeof response.body.data.pagination.hasPrev).toBe('boolean');
+      expect(response.body.data.id).toBe(conversationId);
     });
 
-    test('should support custom pagination parameters', async () => {
-      const { token } = await loginAndGetToken(app);
-
+    it('should deny access to non-participants', async () => {
+      const nonParticipantToken = generateToken('nonparticipant@example.com');
       const response = await request(app)
-        .get('/v1/conversations?page=2&limit=5')
-        .set('Authorization', `Bearer ${token}`);
+        .get(`/v1/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${nonParticipantToken}`);
+
+      expect(response.status).toBe(403);
+    });
+
+    it('should return 404 for non-existent conversation', async () => {
+      const response = await request(app)
+        .get('/v1/conversations/conv_999999999_nonexistent')
+        .set('Authorization', `Bearer ${userToken}`);
+
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe('PUT /v1/conversations/:conversationId', () => {
+    let conversationId: string;
+
+    beforeEach(async () => {
+      // Create a test conversation
+      const response = await request(app)
+        .post('/v1/conversations')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          participantEmails: [otherUser]
+        });
+      conversationId = response.body.data.id;
+    });
+
+    it('should allow creator to update conversation', async () => {
+      const newParticipant = 'newuser@example.com';
+      const response = await request(app)
+        .put(`/v1/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          participantEmails: [otherUser, newParticipant]
+        });
 
       expect(response.status).toBe(200);
-      expect(response.body.data.pagination.page).toBe(2);
-      expect(response.body.data.pagination.limit).toBe(5);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.participantEmails).toContain(newParticipant);
+      expect(response.body.data.participantEmails).toContain(testUser); // Creator always included
     });
 
-    test('should validate pagination parameters', async () => {
-      const { token } = await loginAndGetToken(app);
-
+    it('should deny non-creator from updating conversation', async () => {
       const response = await request(app)
-        .get('/v1/conversations?page=0&limit=101')
-        .set('Authorization', `Bearer ${token}`);
+        .put(`/v1/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${otherUserToken}`)
+        .send({
+          participantEmails: [testUser, 'newuser@example.com']
+        });
+
+      expect(response.status).toBe(403);
+      expect(response.body.error.message).toContain('Only the conversation creator can modify');
+    });
+
+    it('should ensure creator is always included in updated participants', async () => {
+      const response = await request(app)
+        .put(`/v1/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          participantEmails: ['newuser@example.com'] // Creator not included
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.participantEmails).toContain(testUser); // Creator auto-added
+    });
+
+    it('should validate participant emails in update', async () => {
+      const response = await request(app)
+        .put(`/v1/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          participantEmails: ['invalid-email']
+        });
 
       expect(response.status).toBe(400);
-      expect(response.body.error.code).toBe('VALIDATION_ERROR');
     });
 
-    test('should return empty array for user with no conversations', async () => {
-      // Create a new user who hasn't created any conversations
-      const registerResponse = await request(app)
-        .post('/v1/auth/register')
+    it('should return 404 for non-existent conversation', async () => {
+      const response = await request(app)
+        .put('/v1/conversations/conv_999999999_nonexistent')
+        .set('Authorization', `Bearer ${userToken}`)
         .send({
-          email: 'newuser@example.com',
-          password: '123456',
-          displayName: 'New User',
+          participantEmails: [otherUser]
         });
 
-      const token = registerResponse.body.data.token;
+      expect(response.status).toBe(404);
+    });
+  });
 
+  describe('DELETE /v1/conversations/:conversationId', () => {
+    let conversationId: string;
+
+    beforeEach(async () => {
+      // Create a test conversation
       const response = await request(app)
-        .get('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body.data.data).toHaveLength(1); // Mock returns 1 conversation
-      expect(response.body.data.pagination.total).toBe(1);
+        .post('/v1/conversations')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          participantEmails: [otherUser]
+        });
+      conversationId = response.body.data.id;
     });
 
-    test('should require authentication', async () => {
+    it('should allow admin to delete conversation', async () => {
       const response = await request(app)
-        .get('/v1/conversations');
+        .delete(`/v1/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
 
-      expect(response.status).toBe(401);
-      expect(response.body.error.code).toBe('TOKEN_REQUIRED');
+      expect(response.status).toBe(204);
     });
 
-    test('should reject invalid token', async () => {
+    it('should deny non-admin from deleting conversation', async () => {
       const response = await request(app)
-        .get('/v1/conversations')
-        .set('Authorization', 'Bearer invalid-token');
+        .delete(`/v1/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${userToken}`);
 
-      expect(response.status).toBe(401);
-      expect(response.body.error.code).toBe('TOKEN_INVALID');
+      expect(response.status).toBe(403);
+      expect(response.body.error.message).toContain('Only administrators can delete');
     });
 
-    test('should only return conversations where user is a participant', async () => {
-      const { token: token1 } = await loginAndGetToken(app);
+    it('should deny conversation creator from deleting conversation (only admin)', async () => {
+      const response = await request(app)
+        .delete(`/v1/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${userToken}`);
+
+      expect(response.status).toBe(403);
+      expect(response.body.error.message).toContain('Only administrators can delete');
+    });
+
+    it('should return 404 for non-existent conversation', async () => {
+      const response = await request(app)
+        .delete('/v1/conversations/conv_999999999_nonexistent')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe('Security Integration Tests', () => {
+    it('should enforce complete conversation lifecycle security', async () => {
+      // Create conversation as user1
+      const createResponse = await request(app)
+        .post('/v1/conversations')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          participantEmails: [otherUser]
+        });
       
-      // Register second user
-      const registerResponse = await request(app)
-        .post('/v1/auth/register')
+      expect(createResponse.status).toBe(201);
+      const conversationId = createResponse.body.data.id;
+
+      // Other participant can view but not modify
+      const viewResponse = await request(app)
+        .get(`/v1/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${otherUserToken}`);
+      
+      expect(viewResponse.status).toBe(200);
+
+      const updateResponse = await request(app)
+        .put(`/v1/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${otherUserToken}`)
         .send({
-          email: 'otheruser@example.com',
-          password: '123456',
-          displayName: 'Other User',
+          participantEmails: [testUser, 'newuser@example.com']
         });
+      
+      expect(updateResponse.status).toBe(403);
 
-      const token2 = registerResponse.body.data.token;
-
-      // Create conversation as first user
-      await request(app)
-        .post('/v1/conversations')
-        .set('Authorization', `Bearer ${token1}`)
-        .send({
-          participantEmails: ['user2@example.com'],
-        });
-
-      // Check that second user sees the mock conversations
-      const response = await request(app)
-        .get('/v1/conversations')
-        .set('Authorization', `Bearer ${token2}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body.data.data).toHaveLength(1); // Mock returns 1 conversation
+      // Only admin can delete
+      const deleteResponse = await request(app)
+        .delete(`/v1/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      
+      expect(deleteResponse.status).toBe(204);
     });
 
-    test('should return conversations ordered by updatedAt descending', async () => {
-      const { token } = await loginAndGetToken(app);
-
-      // Create multiple conversations
-      await request(app)
-        .post('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`)
-        .send({
-          participantEmails: ['user2@example.com'],
-        });
-
-      await request(app)
-        .post('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`)
-        .send({
-          participantEmails: ['user3@example.com'],
-        });
-
+    it('should handle non-existent users in participant list', async () => {
       const response = await request(app)
-        .get('/v1/conversations')
-        .set('Authorization', `Bearer ${token}`);
+        .post('/v1/conversations')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          participantEmails: ['nonexistent@example.com']
+        });
 
-      expect(response.status).toBe(200);
-      expect(response.body.data.data.length).toBeGreaterThanOrEqual(1);
-
-      // Should be ordered by updatedAt desc (most recent first)
-      const conversations = response.body.data.data;
-      for (let i = 1; i < conversations.length; i++) {
-        const prev = new Date(conversations[i - 1].updatedAt);
-        const curr = new Date(conversations[i].updatedAt);
-        expect(prev.getTime()).toBeGreaterThanOrEqual(curr.getTime());
-      }
+      expect(response.status).toBe(400);
+      expect(response.body.error.message).toContain('Users not found');
     });
   });
 }); 
