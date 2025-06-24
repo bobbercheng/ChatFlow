@@ -23,8 +23,10 @@ const getEnvironment = (): 'development' | 'production' | 'custom' => {
 // Default configurations for different environments
 const environments: Record<string, EnvironmentConfig> = {
     development: {
-        API_BASE_URL: 'http://localhost:3002/v1',
-        WS_BASE_URL: 'ws://localhost:3002/ws',
+        // API_BASE_URL: 'http://localhost:3002/v1',
+        // WS_BASE_URL: 'ws://localhost:3002/ws',
+        API_BASE_URL: 'https://chatflow-backend-3w6u4kmniq-ue.a.run.app/v1',
+        WS_BASE_URL: 'wss://chatflow-backend-3w6u4kmniq-ue.a.run.app/ws',
         APP_NAME: 'ChatFlow (Dev)',
         VERSION: '1.0.0-dev'
     },

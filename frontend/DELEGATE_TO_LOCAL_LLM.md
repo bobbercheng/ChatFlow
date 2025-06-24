@@ -2,9 +2,9 @@
 The idea is has frontend reply message with local LLM e.g. LM Studio.
 
 # UI and workflow
-Introduce a checkbox "Delegate to local LLM" next to Conversation ID textbox. If it's checked, send all conversation messages to local LLM with OpenAI library.
+Introduce a slide switcher "Delegate to local LLM" next to Conversation ID textbox. If it's on, it will send all conversation messages to local LLM with OpenAI library to generate new text message once it get new messages from others, and send generated text message to the conversation.
 
-# LLM workflow
+# How to generate text message
 
 If frontend message array is 
 ```

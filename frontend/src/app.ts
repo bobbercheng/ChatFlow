@@ -1,11 +1,12 @@
 import { apiService } from './services/apiService.js';
 import { websocketService } from './services/websocketService.js';
+import { localLlmService } from './services/localLlmService.js';
 import { User, Message, WebSocketEvent, SearchResult } from './types/index.js';
 import { config } from './config/environment.js';
 import { SearchComponent } from './modules/chatflow/app/components/SearchComponent.js';
 import './version.js'; // Initialize version display
 
-interface MessageDisplay {
+export interface MessageDisplay {
     id?: string;
     conversationId?: string;
     senderId?: string;
@@ -29,6 +30,7 @@ export class ChatFlowApp {
     private eventListenersAttached = false;
     private currentView: 'chat' | 'search' = 'chat';
     private searchComponent: SearchComponent | null = null;
+    private isLlmDelegationEnabled = false;
 
     constructor() {
         console.log('🚀 ChatFlow Frontend Starting...');
@@ -107,6 +109,7 @@ export class ChatFlowApp {
         const messageInput = document.getElementById('messageInput') as HTMLInputElement;
         const conversationInput = document.getElementById('conversationIdInput') as HTMLInputElement;
         const logoutBtn = document.getElementById('logoutBtn') as HTMLButtonElement;
+        const llmToggle = document.getElementById('llmToggle') as HTMLInputElement;
 
         if (sendBtn) {
             sendBtn.addEventListener('click', this.handleSendMessageBound);
@@ -122,6 +125,10 @@ export class ChatFlowApp {
 
         if (logoutBtn) {
             logoutBtn.addEventListener('click', this.handleLogoutBound);
+        }
+
+        if (llmToggle) {
+            llmToggle.addEventListener('change', this.handleLlmToggleBound);
         }
 
         // Search will be handled by SearchComponent when initialized
@@ -147,6 +154,10 @@ export class ChatFlowApp {
         this.updateMessagesDisplay();
     };
     private handleLogoutBound = () => this.handleLogout();
+    private handleLlmToggleBound = (e: Event) => {
+        const target = e.target as HTMLInputElement;
+        this.handleLlmToggle(target.checked);
+    };
 
     private removeEventListeners() {
         const loginBtn = document.getElementById('loginBtn') as HTMLButtonElement;
@@ -325,6 +336,31 @@ export class ChatFlowApp {
         this.showLoginForm();
     }
 
+    private handleLlmToggle(enabled: boolean) {
+        this.isLlmDelegationEnabled = enabled;
+        localLlmService.setEnabled(enabled);
+        console.log(`🤖 LLM delegation ${enabled ? 'enabled' : 'disabled'}`);
+        
+        // Test connection when enabled
+        if (enabled) {
+            this.testLlmConnection();
+        }
+    }
+
+    private async testLlmConnection() {
+        try {
+            const isConnected = await localLlmService.testConnection();
+            if (!isConnected) {
+                console.warn('🤖 Local LLM connection test failed - please ensure LM Studio or compatible server is running on http://127.0.0.1:1234');
+                alert('⚠️ Cannot connect to local LLM server. Please ensure LM Studio is running on http://127.0.0.1:1234');
+            } else {
+                console.log('🤖 Local LLM connection test successful');
+            }
+        } catch (error) {
+            console.error('🤖 LLM connection test error:', error);
+        }
+    }
+
     private async handleSendMessage() {
         const messageInput = document.getElementById('messageInput') as HTMLInputElement;
         const sendBtn = document.getElementById('sendBtn') as HTMLButtonElement;
@@ -338,6 +374,7 @@ export class ChatFlowApp {
         sendBtn.textContent = 'Sending...';
 
         try {
+            // Send the user's message
             await websocketService.sendMessage(this.conversationId, content);
             messageInput.value = '';
         } catch (error) {
@@ -376,7 +413,7 @@ export class ChatFlowApp {
         }
     }
 
-    private handleWebSocketMessage(event: WebSocketEvent) {
+    private async handleWebSocketMessage(event: WebSocketEvent) {
         console.log('WebSocket message received:', event);
 
         switch (event.type) {
@@ -386,13 +423,13 @@ export class ChatFlowApp {
 
             case 'message:new':
                 if (event.payload?.message) {
-                    this.addMessage(event.payload.message);
+                    await this.addMessage(event.payload.message);
                 }
                 break;
 
             case 'message:created':
                 if (event.payload) {
-                    this.addMessage(event.payload);
+                    await this.addMessage(event.payload);
                 }
                 break;
 
@@ -409,7 +446,7 @@ export class ChatFlowApp {
         }
     }
 
-    private addMessage(message: Message) {
+    private async addMessage(message: Message) {
         // If no conversation is set, automatically join the conversation of the first received message
         if (!this.conversationId && message.conversationId) {
             this.conversationId = message.conversationId;
@@ -428,6 +465,40 @@ export class ChatFlowApp {
 
         this.messages = [messageDisplay, ...this.messages];
         this.updateMessagesDisplay('top'); // Scroll to top for new messages
+
+        // Trigger LLM delegation when receiving messages from others (not current user)
+        if (this.isLlmDelegationEnabled && 
+            this.currentUser?.email && 
+            message.senderId !== this.currentUser.email &&
+            message.conversationId === this.conversationId) {
+            
+            console.log('🤖 New message from other user detected, generating LLM response...');
+            
+            // Show spinner to indicate LLM is thinking
+            this.showLlmSpinner();
+            
+            try {
+                // Wait a moment to ensure message is fully processed
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                const llmResponse = await localLlmService.generateResponse(
+                    this.messages, 
+                    this.currentUser.email
+                );
+                
+                if (llmResponse) {
+                    console.log('🤖 Sending LLM response:', llmResponse.substring(0, 100) + '...');
+                    await websocketService.sendMessage(this.conversationId, llmResponse);
+                    console.log('🤖 LLM response sent successfully');
+                }
+            } catch (llmError) {
+                console.error('🤖 LLM response generation error:', llmError);
+                // Fail silently to avoid disrupting user experience
+            } finally {
+                // Always hide spinner when LLM generation is complete
+                this.hideLlmSpinner();
+            }
+        }
     }
 
     private updateConversationDisplay() {
@@ -465,6 +536,22 @@ export class ChatFlowApp {
         if (statusElement) {
             statusElement.textContent = this.connectionStatus;
             statusElement.className = this.getConnectionStatusClass();
+        }
+    }
+
+    private showLlmSpinner() {
+        const spinner = document.getElementById('llmSpinner');
+        if (spinner) {
+            spinner.style.display = 'flex';
+            console.log('🤖 Showing LLM generation spinner');
+        }
+    }
+
+    private hideLlmSpinner() {
+        const spinner = document.getElementById('llmSpinner');
+        if (spinner) {
+            spinner.style.display = 'none';
+            console.log('🤖 Hiding LLM generation spinner');
         }
     }
 
@@ -752,6 +839,15 @@ export class ChatFlowApp {
                                 <label for="conversationIdInput">Conversation ID:</label>
                                 <input id="conversationIdInput" type="text" value="${this.conversationId}" placeholder="Enter conversation ID or click from search results" />
                             </div>
+                            <div class="llm-delegation-control">
+                                <label for="llmToggle" class="toggle-label">
+                                    <span>🤖 Delegate to Local LLM</span>
+                                    <div class="toggle-switch">
+                                        <input type="checkbox" id="llmToggle" ${this.isLlmDelegationEnabled ? 'checked' : ''}>
+                                        <span class="slider"></span>
+                                    </div>
+                                </label>
+                            </div>
                             <div class="connection-status">
                                 <span class="${this.getConnectionStatusClass()}">🔗 ${this.connectionStatus}</span>
                             </div>
@@ -764,7 +860,13 @@ export class ChatFlowApp {
                         <div class="message-input-container">
                             <div class="message-input">
                                 <input id="messageInput" type="text" placeholder="Type a message..." />
-                                <button id="sendBtn">📤 Send</button>
+                                <div class="send-button-container">
+                                    <button id="sendBtn">📤 Send</button>
+                                    <div id="llmSpinner" class="llm-spinner" style="display: none;">
+                                        <div class="spinner"></div>
+                                        <span class="spinner-text">🤖 AI thinking...</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -5,11 +5,9 @@
   "main": "dist/app.js",
   "scripts": {
     "build": "vite build",
-    "build-legacy": "tsc && cp *.html *.css dist/ 2>/dev/null || true",
-    "build-with-cache-bust": "npm run build-legacy && node scripts/add-cache-bust.js",
     "dev": "vite",
     "preview": "vite preview",
-    "start": "npm run build && python3 -m http.server 3003 --directory dist",
+    "start": "npm run build && npm run preview",
     "type-check": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -19,9 +17,11 @@
   "devDependencies": {
     "@types/jest": "^29.5.0",
     "@types/js-yaml": "^4.0.9",
+    "@types/node-fetch": "^2.6.12",
     "jest": "^29.5.0",
     "jest-environment-jsdom": "^29.5.0",
     "js-yaml": "^4.1.0",
+    "node-fetch": "^2.7.0",
     "ts-jest": "^29.4.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
@@ -43,6 +43,7 @@
     ]
   },
   "dependencies": {
+    "openai": "^4.65.0",
     "scrypt-js": "^3.0.1"
   }
 }
