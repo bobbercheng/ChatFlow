@@ -13,6 +13,38 @@ if (!globalThis.fetch) {
     globalThis.Response = Response;
 }
 
+// Mock build-time version variable
+(global as any).__FRONTEND_VERSION__ = 'test-version';
+
+// Setup localStorage mock
+const localStorageMock = {
+    getItem: jest.fn(() => null),
+    setItem: jest.fn(),
+    removeItem: jest.fn(),
+    clear: jest.fn(),
+    length: 0,
+    key: jest.fn()
+};
+
+const sessionStorageMock = {
+    getItem: jest.fn(() => null),
+    setItem: jest.fn(),
+    removeItem: jest.fn(),
+    clear: jest.fn(),
+    length: 0,
+    key: jest.fn()
+};
+
+Object.defineProperty(window, 'localStorage', {
+    value: localStorageMock,
+    writable: true
+});
+
+Object.defineProperty(window, 'sessionStorage', {
+    value: sessionStorageMock,
+    writable: true
+});
+
 // Global test setup
 beforeEach(() => {
     // Clean up DOM before each test
@@ -21,9 +53,12 @@ beforeEach(() => {
     // Reset any global variables
     (window as any).chatApp = undefined;
     
-    // Clear localStorage and sessionStorage
-    localStorage.clear();
-    sessionStorage.clear();
+    // Reset localStorage and sessionStorage mocks
+    jest.clearAllMocks();
+    localStorageMock.clear.mockClear();
+    localStorageMock.getItem.mockReturnValue(null);
+    sessionStorageMock.clear.mockClear();
+    sessionStorageMock.getItem.mockReturnValue(null);
 });
 
 // Mock scrollIntoView for tests

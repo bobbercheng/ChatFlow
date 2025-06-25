@@ -4,6 +4,7 @@ import { localLlmService } from './services/localLlmService.js';
 import { User, Message, WebSocketEvent, SearchResult } from './types/index.js';
 import { config } from './config/environment.js';
 import { SearchComponent } from './modules/chatflow/app/components/SearchComponent.js';
+import { ConversationSidebar } from './components/ConversationSidebar.js';
 import './version.js'; // Initialize version display
 
 export interface MessageDisplay {
@@ -30,6 +31,7 @@ export class ChatFlowApp {
     private eventListenersAttached = false;
     private currentView: 'chat' | 'search' = 'chat';
     private searchComponent: SearchComponent | null = null;
+    private conversationSidebar: ConversationSidebar | null = null;
     private isLlmDelegationEnabled = false;
 
     constructor() {
@@ -263,6 +265,81 @@ export class ChatFlowApp {
                 this.searchComponent = null; // Reset flag
                 this.initializeSearchComponent();
             }, 100);
+        }
+    }
+
+    private initializeConversationSidebar() {
+        console.log('Initializing Conversation Sidebar...');
+        const sidebarContainer = document.getElementById('conversationSidebarContainer');
+        
+        if (!sidebarContainer) {
+            console.error('Sidebar container not found');
+            return;
+        }
+        
+        if (this.conversationSidebar) {
+            console.log('ConversationSidebar already initialized');
+            return;
+        }
+
+        try {
+            this.conversationSidebar = new ConversationSidebar(
+                sidebarContainer,
+                this.currentUser?.email || '',
+                (conversationId: string) => this.handleSidebarConversationSelect(conversationId)
+            );
+            
+            // Set initial layout state to match sidebar's collapsed state
+            const isCollapsed = this.conversationSidebar.isCollapsed();
+            document.body.classList.toggle('sidebar-collapsed', isCollapsed);
+            
+            const mainContent = document.querySelector('.main-content') as HTMLElement;
+            if (mainContent) {
+                mainContent.classList.toggle('sidebar-collapsed', isCollapsed);
+            }
+            
+            console.log('ConversationSidebar initialized successfully with layout state:', isCollapsed ? 'collapsed' : 'expanded');
+        } catch (error) {
+            console.error('Failed to initialize ConversationSidebar:', error);
+        }
+    }
+
+    private bindSidebarEvents() {
+        // Listen for sidebar toggle events to update main content layout
+        window.addEventListener('sidebarToggle', (event: Event) => {
+            const customEvent = event as CustomEvent;
+            const { isCollapsed } = customEvent.detail;
+            
+            // Update both body and main-content classes for reliable layout
+            document.body.classList.toggle('sidebar-collapsed', isCollapsed);
+            
+            const mainContent = document.querySelector('.main-content') as HTMLElement;
+            if (mainContent) {
+                mainContent.classList.toggle('sidebar-collapsed', isCollapsed);
+            }
+            
+            console.log(`Layout updated: sidebar ${isCollapsed ? 'collapsed' : 'expanded'}`);
+        });
+    }
+
+    private handleSidebarConversationSelect(conversationId: string) {
+        console.log(`Sidebar selected conversation: ${conversationId}`);
+        
+        // Update current conversation
+        this.conversationId = conversationId;
+        
+        // Update the conversation input field
+        const conversationInput = document.getElementById('conversationIdInput') as HTMLInputElement;
+        if (conversationInput) {
+            conversationInput.value = conversationId;
+        }
+        
+        // Load conversation messages
+        this.loadConversationMessages(conversationId);
+        
+        // Switch to chat view if not already there
+        if (this.currentView !== 'chat') {
+            this.switchView('chat');
         }
     }
 
@@ -812,7 +889,10 @@ export class ChatFlowApp {
         if (!app) return;
 
         app.innerHTML = `
-            <div class="chat-app">
+            <!-- Conversation Sidebar -->
+            <div id="conversationSidebarContainer"></div>
+            
+            <div class="chat-app main-content">
                 <div class="header">
                     <h1>💬 ${config.APP_NAME}</h1>
                     <div class="user-info">
@@ -882,6 +962,8 @@ export class ChatFlowApp {
         // Use setTimeout to ensure DOM is fully ready before binding events
         setTimeout(() => {
             this.bindEvents();
+            this.initializeConversationSidebar();
+            this.bindSidebarEvents();
             this.updateMessagesDisplay('none'); // Don't auto-scroll on interface load
             
             // Set default view and expose the app globally

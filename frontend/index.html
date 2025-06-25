@@ -6,34 +6,6 @@
     <title>ChatFlow</title>
     <link rel="stylesheet" href="./styles.css">
     
-    <!-- Additional styles for footer -->
-    <style>
-        body {
-            margin: 0;
-            padding: 0 0 40px 0; /* Add bottom padding for footer */
-        }
-        
-        #app-footer {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            transition: opacity 0.3s ease;
-        }
-        
-        #app-footer:hover {
-            opacity: 0.9;
-        }
-        
-        @media (max-width: 768px) {
-            #app-footer {
-                font-size: 10px;
-                padding: 6px 12px;
-            }
-            body {
-                padding-bottom: 35px; /* Adjust for smaller footer on mobile */
-            }
-        }
-    </style>
-    
     <!-- Vite handles module resolution automatically -->
 
     <!-- Environment Configuration (optional) -->
@@ -56,31 +28,29 @@
     </div>
     
     <!-- Footer with API Documentation Link -->
-    <footer id="app-footer" style="position: fixed; bottom: 0; left: 0; right: 0; background: rgba(0, 0, 0, 0.8); color: white; padding: 8px 16px; text-align: center; font-size: 12px; z-index: 100; backdrop-filter: blur(10px);">
+    <footer id="app-footer">
         <span>ChatFlow API • </span>
-        <a id="swagger-link" href="#" target="_blank" style="color: #4fc3f7; text-decoration: none; font-weight: 500;" 
-           onmouseover="this.style.textDecoration='underline'" 
-           onmouseout="this.style.textDecoration='none'">
+        <a id="swagger-link" href="#" target="_blank">
             📖 API Documentation
         </a>
-        <span> • Frontend v<span id="frontend-version" style="color: #81c784; font-weight: 500;">loading...</span></span>
+        <span> • Frontend v<span id="frontend-version">loading...</span></span>
     </footer>
     
     <!-- Configuration Panel (for runtime configuration) -->
-    <div id="config-panel" style="display: none; position: fixed; top: 10px; right: 10px; background: white; border: 1px solid #ccc; padding: 10px; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000;">
+    <div id="config-panel">
         <h4>Backend Configuration</h4>
         <label>API URL:</label>
-        <input type="text" id="config-api-url" placeholder="https://backend.com/v1" style="width: 250px; margin: 5px 0;">
+        <input type="text" id="config-api-url" placeholder="https://backend.com/v1">
         <br>
         <label>WebSocket URL:</label>
-        <input type="text" id="config-ws-url" placeholder="wss://backend.com/ws" style="width: 250px; margin: 5px 0;">
+        <input type="text" id="config-ws-url" placeholder="wss://backend.com/ws">
         <br>
-        <button onclick="applyConfig()" style="margin: 5px 5px 5px 0;">Apply</button>
-        <button onclick="toggleConfigPanel()" style="margin: 5px 0;">Close</button>
+        <button onclick="applyConfig()">Apply</button>
+        <button onclick="toggleConfigPanel()">Close</button>
     </div>
     
     <!-- Configuration Toggle Button -->
-    <button id="config-toggle" onclick="toggleConfigPanel()" style="position: fixed; top: 10px; right: 10px; background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; z-index: 999;">
+    <button id="config-toggle" onclick="toggleConfigPanel()">
         ⚙️ Config
     </button>
     
