@@ -1,14 +1,19 @@
 // Integration test for search navigation fixes
 describe('Navigation Integration Tests', () => {
-    test('should not have duplicate conversation ID elements', () => {
+    test('should display participants instead of conversation ID input', () => {
         // Create a simplified version of the main interface HTML
         document.body.innerHTML = `
             <div id="app">
                 <div class="chat-container">
                     <div class="conversation-info">
-                        <div class="conversation-id-input">
-                            <label for="conversationIdInput">🆔 Conversation ID:</label>
-                            <input id="conversationIdInput" type="text" value="" placeholder="Enter conversation ID or click from search results" />
+                        <div class="conversation-participants">
+                            <div class="participants-header">
+                                <span class="participants-icon">👥</span>
+                                <span class="participants-label">Conversation:</span>
+                            </div>
+                            <div id="participantsDisplay" class="participants-display">
+                                Select a conversation from the sidebar or search
+                            </div>
                         </div>
                         <div class="connection-status">
                             <span class="status-connected">🔗 Connected</span>
@@ -18,17 +23,16 @@ describe('Navigation Integration Tests', () => {
             </div>
         `;
 
-        // Verify there's only one conversation ID input
-        const conversationIdInputs = document.querySelectorAll('#conversationIdInput');
-        expect(conversationIdInputs.length).toBe(1);
+        // Verify there's a participants display element
+        const participantsDisplay = document.getElementById('participantsDisplay');
+        expect(participantsDisplay).toBeTruthy();
 
         // Verify no duplicate header display
         const conversationHeaders = document.querySelectorAll('.conversation-info h3');
         expect(conversationHeaders.length).toBe(0);
 
-        // Verify the input has the updated placeholder
-        const conversationInput = document.getElementById('conversationIdInput') as HTMLInputElement;
-        expect(conversationInput.placeholder).toContain('search results');
+        // Verify the display has the default message
+        expect(participantsDisplay?.textContent).toContain('Select a conversation');
     });
 
     test('should handle search result navigation with messageId', () => {
@@ -73,22 +77,26 @@ describe('Navigation Integration Tests', () => {
         expect(messageElement?.classList.contains('highlighted')).toBe(true);
     });
 
-    test('should handle conversation ID updates without duplicates', () => {
+    test('should handle participants display updates correctly', () => {
         // Create conversation interface
         document.body.innerHTML = `
             <div class="conversation-info">
-                <div class="conversation-id-input">
-                    <input id="conversationIdInput" type="text" value="" />
+                <div class="conversation-participants">
+                    <div id="participantsDisplay" class="participants-display">
+                        Select a conversation from the sidebar or search
+                    </div>
                 </div>
             </div>
         `;
 
-        // Simulate updating conversation ID
-        const conversationInput = document.getElementById('conversationIdInput') as HTMLInputElement;
-        conversationInput.value = 'new_conv_123';
+        // Simulate updating participants display
+        const participantsDisplay = document.getElementById('participantsDisplay');
+        if (participantsDisplay) {
+            participantsDisplay.textContent = 'Chat with user@example.com';
+        }
 
         // Verify update
-        expect(conversationInput.value).toBe('new_conv_123');
+        expect(participantsDisplay?.textContent).toBe('Chat with user@example.com');
 
         // Verify no duplicate headers were created
         const headers = document.querySelectorAll('.conversation-info h3');

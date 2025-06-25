@@ -206,27 +206,30 @@ body {
     content: '🟡';
 }
 
-/* Conversation ID Input */
-.conversation-id-input {
+/* Conversation Participants Display */
+.conversation-participants {
     margin-bottom: 1.5rem;
 }
 
-.conversation-id-input label {
-    display: block;
+.participants-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     margin-bottom: 0.75rem;
     font-weight: 600;
     color: #374151;
     font-size: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
 }
 
-.conversation-id-input label::before {
-    content: '🆔';
+.participants-icon {
+    font-size: 1.25rem;
 }
 
-.conversation-id-input input {
+.participants-label {
+    color: #374151;
+}
+
+.participants-display {
     width: 100%;
     padding: 1rem 1.5rem;
     border: none;
@@ -236,17 +239,21 @@ body {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
+    color: #374151;
+    font-weight: 500;
+    min-height: 3rem;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    word-break: break-all;
 }
 
-.conversation-id-input input:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3), 0 8px 25px rgba(0, 0, 0, 0.15);
-    transform: translateY(-2px);
-}
-
-.conversation-id-input input::placeholder {
+.participants-display:empty::before {
+    content: 'Select a conversation from the sidebar or search';
     color: #9ca3af;
+    font-style: italic;
 }
 
 /* LLM Delegation Toggle */
@@ -633,7 +640,7 @@ input:checked + .slider:before {
 }
 
 @media (max-width: 480px) {
-    .conversation-id-input input {
+    .participants-display {
         padding: 0.875rem 1.25rem;
         font-size: 0.95rem;
     }

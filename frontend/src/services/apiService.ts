@@ -455,6 +455,10 @@ class ApiService {
         return this.request<PaginationResult<Conversation>>(`/conversations?page=${page}&limit=${limit}`);
     }
 
+    async getConversation(conversationId: string): Promise<ApiResponse<Conversation>> {
+        return this.request<Conversation>(`/conversations/${conversationId}`);
+    }
+
     async createConversation(data: CreateConversationRequest): Promise<ApiResponse<Conversation>> {
         return this.request<Conversation>('/conversations', {
             method: 'POST',

@@ -179,8 +179,6 @@ export class ConversationSidebar {
             return 'Unknown';
         }
 
-        // For now, we'll use participant IDs as display names
-        // In a real implementation, you'd fetch user details from participants
         const participantCount = conversation.participants.length;
         
         if (participantCount === 1) {
@@ -191,7 +189,14 @@ export class ConversationSidebar {
             return 'Direct Chat';
         }
         
-        return `Group Chat (${participantCount} members)`;
+        // For group chat, show member count and participant emails with creator icon
+        const createdBy = conversation.createdBy;
+        const participantEmails = conversation.participants.map(p => {
+            const isCreator = p.userId === createdBy;
+            return isCreator ? `${p.userId} 👑` : p.userId;
+        }).join(', ');
+        
+        return `Group Chat (${participantCount} members): ${participantEmails}`;
     }
 
     private parseTimestamp(timestamp: any): Date {

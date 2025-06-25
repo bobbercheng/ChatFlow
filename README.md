@@ -315,6 +315,7 @@ A simple frontend demo is available at `frontend/` directory. It provides:
 - Migrate to production Firestore from emulator. - Done
 
 # Roadmap
-- POC to delegate a participant in a conversation to local OpenAI compatible LLM.
-- Register bot user with webhook.
+- POC to delegate a participant in a conversation to local OpenAI compatible LLM. -  Done.
+- Add conversation list. - Done.
+- Register bot user with web webhook and OpenAI compatible LLM.
 - SSO login.

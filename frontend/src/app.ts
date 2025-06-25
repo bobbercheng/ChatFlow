@@ -24,6 +24,7 @@ export class ChatFlowApp {
     private isLoggedIn = false;
     private currentUser: User | null = null;
     private conversationId = '';
+    private currentConversation: any = null; // Store current conversation data with participants
     private messages: MessageDisplay[] = [];
     private connectionStatus = 'Disconnected';
     private wsUnsubscribe: (() => void) | null = null;
@@ -109,7 +110,6 @@ export class ChatFlowApp {
         // Chat interface events
         const sendBtn = document.getElementById('sendBtn') as HTMLButtonElement;
         const messageInput = document.getElementById('messageInput') as HTMLInputElement;
-        const conversationInput = document.getElementById('conversationIdInput') as HTMLInputElement;
         const logoutBtn = document.getElementById('logoutBtn') as HTMLButtonElement;
         const llmToggle = document.getElementById('llmToggle') as HTMLInputElement;
 
@@ -121,9 +121,7 @@ export class ChatFlowApp {
             messageInput.addEventListener('keypress', this.handleMessageKeyPressBound);
         }
 
-        if (conversationInput) {
-            conversationInput.addEventListener('change', this.handleConversationChangeBound);
-        }
+
 
         if (logoutBtn) {
             logoutBtn.addEventListener('click', this.handleLogoutBound);
@@ -149,12 +147,7 @@ export class ChatFlowApp {
             this.handleSendMessage();
         }
     };
-    private handleConversationChangeBound = (e: Event) => {
-        const target = e.target as HTMLInputElement;
-        this.conversationId = target.value;
-        this.messages = [];
-        this.updateMessagesDisplay();
-    };
+
     private handleLogoutBound = () => this.handleLogout();
     private handleLlmToggleBound = (e: Event) => {
         const target = e.target as HTMLInputElement;
@@ -175,7 +168,6 @@ export class ChatFlowApp {
 
         const sendBtn = document.getElementById('sendBtn') as HTMLButtonElement;
         const messageInput = document.getElementById('messageInput') as HTMLInputElement;
-        const conversationInput = document.getElementById('conversationIdInput') as HTMLInputElement;
         const logoutBtn = document.getElementById('logoutBtn') as HTMLButtonElement;
 
         if (sendBtn) {
@@ -184,10 +176,6 @@ export class ChatFlowApp {
 
         if (messageInput) {
             messageInput.removeEventListener('keypress', this.handleMessageKeyPressBound);
-        }
-
-        if (conversationInput) {
-            conversationInput.removeEventListener('change', this.handleConversationChangeBound);
         }
 
         if (logoutBtn) {
@@ -322,20 +310,17 @@ export class ChatFlowApp {
         });
     }
 
-    private handleSidebarConversationSelect(conversationId: string) {
+    private async handleSidebarConversationSelect(conversationId: string) {
         console.log(`Sidebar selected conversation: ${conversationId}`);
         
         // Update current conversation
         this.conversationId = conversationId;
         
-        // Update the conversation input field
-        const conversationInput = document.getElementById('conversationIdInput') as HTMLInputElement;
-        if (conversationInput) {
-            conversationInput.value = conversationId;
-        }
+        // Fetch conversation data with participants
+        await this.loadConversationData(conversationId);
         
         // Load conversation messages
-        this.loadConversationMessages(conversationId);
+        await this.loadConversationMessages(conversationId);
         
         // Switch to chat view if not already there
         if (this.currentView !== 'chat') {
@@ -579,10 +564,62 @@ export class ChatFlowApp {
     }
 
     private updateConversationDisplay() {
-        // Update the conversation ID input field
-        const conversationInput = document.getElementById('conversationIdInput') as HTMLInputElement;
-        if (conversationInput) {
-            conversationInput.value = this.conversationId;
+        const participantsDisplay = document.getElementById('participantsDisplay');
+        if (participantsDisplay) {
+            if (this.currentConversation) {
+                participantsDisplay.textContent = this.getParticipantNames();
+            } else if (this.conversationId) {
+                participantsDisplay.textContent = `Conversation: ${this.conversationId}`;
+            } else {
+                participantsDisplay.textContent = 'Select a conversation from the sidebar or search';
+            }
+        }
+    }
+
+    private getParticipantNames(): string {
+        if (!this.currentConversation?.participants || this.currentConversation.participants.length === 0) {
+            return 'Unknown participants';
+        }
+
+        const participants = this.currentConversation.participants;
+        const participantCount = participants.length;
+        
+        if (participantCount === 1) {
+            return 'You';
+        }
+        
+        if (participantCount === 2) {
+            // For direct chat, show the other participant's name/email
+            const otherParticipant = participants.find((p: any) => p.userId !== this.currentUser?.email);
+            return otherParticipant ? `Chat with ${otherParticipant.userId}` : 'Direct Chat';
+        }
+        
+        // For group chat, show member count and participant emails with creator icon
+        const createdBy = this.currentConversation.createdBy;
+        const participantEmails = participants.map((p: any) => {
+            const isCreator = p.userId === createdBy;
+            return isCreator ? `${p.userId} 👑` : p.userId;
+        }).join(', ');
+        
+        return `Group Chat (${participantCount} members): ${participantEmails}`;
+    }
+
+    private async loadConversationData(conversationId: string) {
+        try {
+            const response = await apiService.getConversation(conversationId);
+            if (response.success && response.data) {
+                this.currentConversation = response.data;
+                this.updateConversationDisplay();
+                console.log('Loaded conversation data:', this.currentConversation);
+            } else {
+                console.error('Failed to load conversation data:', response.error);
+                this.currentConversation = null;
+                this.updateConversationDisplay();
+            }
+        } catch (error) {
+            console.error('Error loading conversation data:', error);
+            this.currentConversation = null;
+            this.updateConversationDisplay();
         }
     }
 
@@ -743,16 +780,11 @@ export class ChatFlowApp {
         // Set the conversation ID
         this.conversationId = conversationId;
         
-        // Update the conversation input
-        const conversationInput = document.getElementById('conversationIdInput') as HTMLInputElement;
-        if (conversationInput) {
-            conversationInput.value = conversationId;
-        }
+        // Fetch conversation data with participants
+        await this.loadConversationData(conversationId);
         
         // Load conversation messages for better UX
         await this.loadConversationMessages(conversationId, messageId);
-        
-        this.updateConversationDisplay();
     }
 
     /**
@@ -915,9 +947,14 @@ export class ChatFlowApp {
                 <div id="chatContent" class="content-panel">
                     <div class="chat-container">
                         <div class="conversation-info">
-                            <div class="conversation-id-input">
-                                <label for="conversationIdInput">Conversation ID:</label>
-                                <input id="conversationIdInput" type="text" value="${this.conversationId}" placeholder="Enter conversation ID or click from search results" />
+                            <div class="conversation-participants">
+                                <div class="participants-header">
+                                    <span class="participants-icon">👥</span>
+                                    <span class="participants-label">Conversation:</span>
+                                </div>
+                                <div id="participantsDisplay" class="participants-display">
+                                    Select a conversation from the sidebar or search
+                                </div>
                             </div>
                             <div class="llm-delegation-control">
                                 <label for="llmToggle" class="toggle-label">

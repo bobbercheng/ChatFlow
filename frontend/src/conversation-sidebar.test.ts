@@ -5,6 +5,7 @@ import { apiService } from './services/apiService.js';
 jest.mock('./services/apiService.js', () => ({
     apiService: {
         getConversations: jest.fn(),
+        getConversation: jest.fn(),
         createConversation: jest.fn(),
     }
 }));
@@ -326,14 +327,15 @@ describe('ConversationSidebar', () => {
             sidebar = new ConversationSidebar(container, 'test@example.com', mockOnConversationSelect);
         });
 
-        test('should display correct participant count for group conversations', () => {
+        test('should display correct participant count and emails for group conversations with creator icon', () => {
             const mockConversation = {
                 id: 'conv_1',
+                createdBy: 'user1@example.com',
                 participants: [
-                    { userId: 'user1' },
-                    { userId: 'user2' },
-                    { userId: 'user3' },
-                    { userId: 'user4' }
+                    { userId: 'user1@example.com' },
+                    { userId: 'user2@example.com' },
+                    { userId: 'user3@example.com' },
+                    { userId: 'user4@example.com' }
                 ],
                 updatedAt: new Date().toISOString()
             };
@@ -347,7 +349,7 @@ describe('ConversationSidebar', () => {
                 participantDisplayNames: []
             });
 
-            expect(result).toBe('Group Chat (4 members)');
+            expect(result).toBe('Group Chat (4 members): user1@example.com 👑, user2@example.com, user3@example.com, user4@example.com');
         });
 
         test('should display "Direct Chat" for two participants', () => {
@@ -387,6 +389,29 @@ describe('ConversationSidebar', () => {
             });
 
             expect(result).toBe('You');
+        });
+
+        test('should handle group conversations without createdBy field', () => {
+            const mockConversation = {
+                id: 'conv_1',
+                // No createdBy field
+                participants: [
+                    { userId: 'user1@example.com' },
+                    { userId: 'user2@example.com' },
+                    { userId: 'user3@example.com' }
+                ],
+                updatedAt: new Date().toISOString()
+            };
+
+            const getParticipantNames = (sidebar as any).getParticipantNames.bind(sidebar);
+            const result = getParticipantNames({
+                ...mockConversation,
+                lastMessage: undefined,
+                unreadCount: 0,
+                participantDisplayNames: []
+            });
+
+            expect(result).toBe('Group Chat (3 members): user1@example.com, user2@example.com, user3@example.com');
         });
     });
 
