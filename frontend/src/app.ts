@@ -5,6 +5,7 @@ import { User, Message, WebSocketEvent, SearchResult } from './types/index.js';
 import { config } from './config/environment.js';
 import { SearchComponent } from './modules/chatflow/app/components/SearchComponent.js';
 import { ConversationSidebar } from './components/ConversationSidebar.js';
+import anchorme from 'anchorme';
 import './version.js'; // Initialize version display
 
 export interface MessageDisplay {
@@ -679,7 +680,7 @@ export class ChatFlowApp {
                     <span class="sender">${message.senderDisplayName}</span>
                     <span class="timestamp">${message.formattedTime}</span>
                 </div>
-                <div class="message-content">${this.escapeHtml(message.content || '')}</div>
+                <div class="message-content">${this.linkifyText(message.content || '')}</div>
             </div>
         `).join('');
 
@@ -698,6 +699,22 @@ export class ChatFlowApp {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    private linkifyText(text: string): string {
+        // First escape HTML to prevent XSS
+        const escapedText = this.escapeHtml(text);
+        
+        // Then convert URLs to clickable links using anchorme
+        let linkedText = anchorme(escapedText);
+        
+        // Add security attributes to all generated links
+        linkedText = linkedText.replace(
+            /<a href="/g, 
+            '<a target="_blank" rel="noopener noreferrer" class="message-link" href="'
+        );
+        
+        return linkedText;
     }
 
     private showError(message: string) {
@@ -756,7 +773,7 @@ export class ChatFlowApp {
                         <span class="time">🕒 ${timeAgo} • ⭐ ${relevancePercentage}% match</span>
                     </div>
                     <div class="result-content">
-                        ${this.escapeHtml(content.substring(0, 200))}${content.length > 200 ? '...' : ''}
+                        ${this.linkifyText(content.substring(0, 200))}${content.length > 200 ? '...' : ''}
                     </div>
                     <div class="result-conversation">
                         💬 Conversation: ${result.conversationId || 'Unknown'}

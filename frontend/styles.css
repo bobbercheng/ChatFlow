@@ -1971,87 +1971,43 @@ input:checked + .slider:before {
 
 /* Main Content Layout Adjustments */
 .main-content {
-    margin-left: 320px;
+    margin-left: 300px;
     transition: margin-left 0.3s ease;
 }
 
-/* Update main content margin when sidebar is collapsed */
-.main-content.sidebar-collapsed {
+.sidebar-collapsed .main-content {
     margin-left: 60px;
 }
 
-/* Body class approach for global layout changes */
-body.sidebar-collapsed .main-content {
-    margin-left: 60px;
+.message-link {
+    color: #007bff;
+    text-decoration: underline;
+    word-break: break-all;
+    transition: color 0.2s ease;
 }
 
-/* Update chat-app width when sidebar is collapsed */
-.chat-app.main-content.sidebar-collapsed {
-    margin-left: 60px;
-    width: calc(100% - 60px);
+.message-link:hover {
+    color: #0056b3;
+    text-decoration: none;
 }
 
-body.sidebar-collapsed .chat-app.main-content {
-    margin-left: 60px;
-    width: calc(100% - 60px);
+.message-link:visited {
+    color: #6610f2;
 }
 
-/* Fix chat-app layout when sidebar is present */
-.chat-app.main-content {
-    max-width: none;
-    margin: 0;
-    margin-left: 320px; /* Preserve left margin for sidebar */
-    width: calc(100% - 320px); /* Adjust width to account for margin */
-    padding: 0;
-    transition: margin-left 0.3s ease, width 0.3s ease;
+/* Make links more visible in sent messages */
+.message-sent .message-link {
+    color: #ffffff;
+    font-weight: 500;
 }
 
-/* Fix chat container layout when sidebar is present */
-.main-content .chat-container {
-    padding: 1rem;
-    margin: 0;
-    background: transparent;
-    border-radius: 0;
-    box-shadow: none;
-    width: 100%;
-    height: calc(100vh - 300px); /* Conservative height accounting for header, nav, footer, controls */
-    max-height: calc(100vh - 300px); /* Prevent overflow */
+.message-sent .message-link:hover {
+    color: #f8f9fa;
+    text-decoration: underline;
 }
 
-/* Ensure message input is always visible when sidebar is present */
-.main-content .message-input-container {
-    position: sticky;
-    bottom: 0;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 16px;
-    padding: 1rem;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    margin-top: auto;
-    z-index: 10;
-}
-
-/* Adjust messages container height when sidebar is present */
-.main-content .messages-container {
-    flex: 1;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 16px;
-    overflow: hidden;
-    margin-bottom: 1rem;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    display: flex;
-    flex-direction: column;
-    max-height: calc(100vh - 450px); /* Ensure input area is always visible */
-}
-
-/* Remove centering and width limits from search container in main content */
-.main-content .search-container {
-    max-width: none;
-    margin: 0;
-    padding-left: 0;
-    padding-right: 0;
-    width: 100%;
+.message-sent .message-link:visited {
+    color: #e9ecef;
 }
 
 /* Sidebar Responsive Design */
