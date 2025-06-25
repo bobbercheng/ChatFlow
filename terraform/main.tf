@@ -100,6 +100,26 @@ resource "google_firestore_index" "search_queries_trending" {
   depends_on = [google_firestore_database.chatflow_db]
 }
 
+# Create Firestore index for sponsors query
+# This index supports queries that filter by isActive (equality) and order by createdAt (descending)
+resource "google_firestore_index" "sponsors_by_active_and_date" {
+  project    = var.project_id
+  database   = google_firestore_database.chatflow_db.name
+  collection = "sponsors"
+
+  fields {
+    field_path = "isActive"
+    order      = "ASCENDING"
+  }
+
+  fields {
+    field_path = "createdAt"
+    order      = "DESCENDING"
+  }
+
+  depends_on = [google_firestore_database.chatflow_db]
+}
+
 # Single-field indexes are automatically created by Firestore
 # No need to explicitly create an index just for createdAt ordering
 # The index below is commented out because it's handled automatically
