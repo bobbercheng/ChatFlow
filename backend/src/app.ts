@@ -14,6 +14,7 @@ import { messageRoutes } from './rest/v1/routes/messages';
 import searchRoutes from './rest/v1/routes/search';
 import { adminRoutes } from './rest/v1/routes/admin';
 import { keyRoutes } from './rest/v1/routes/keys';
+import sponsorRoutes from './rest/v1/routes/sponsors';
 import { healthService } from './services/health.service';
 
 const app = express();
@@ -145,6 +146,7 @@ app.use('/v1/messages', messageRoutes);
 app.use('/v1/search', searchRoutes);
 app.use('/v1/keys', keyRoutes); // Public key coordination endpoints
 app.use('/v1/admin', adminRoutes);
+app.use('/v1/admin/sponsors', sponsorRoutes);
 
 // 404 handler
 app.use('*', (_req, res) => {

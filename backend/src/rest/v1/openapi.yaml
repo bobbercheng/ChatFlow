@@ -680,6 +680,88 @@ components:
         message:
           type: string
 
+    # Sponsor Management Schemas
+    SponsorTargetFilter:
+      type: string
+      enum: [new_user, everyone]
+      description: Target filter for sponsor messages
+
+    Sponsor:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique sponsor identifier
+        sponsorUserEmail:
+          type: string
+          format: email
+          description: Email of the sponsor user
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: The message to be sent
+        targetFilter:
+          $ref: '#/components/schemas/SponsorTargetFilter'
+        isActive:
+          type: boolean
+          description: Whether this sponsor is currently active
+        createdBy:
+          type: string
+          format: email
+          description: Admin email who created this sponsor
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateSponsorRequest:
+      type: object
+      required:
+        - sponsorUserEmail
+        - message
+        - targetFilter
+      properties:
+        sponsorUserEmail:
+          type: string
+          format: email
+          description: Email of the sponsor user
+          example: "sponsor@example.com"
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: The message to be sent to targeted users
+          example: "Welcome to ChatFlow! I'm here to help you get started."
+        targetFilter:
+          $ref: '#/components/schemas/SponsorTargetFilter'
+          example: "new_user"
+
+    SponsorPaginationResult:
+      type: object
+      properties:
+        sponsors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sponsor'
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            limit:
+              type: integer
+            total:
+              type: integer
+            totalPages:
+              type: integer
+            hasNext:
+              type: boolean
+            hasPrev:
+              type: boolean
+
     # Encryption Schemas
     EncryptionMetadata:
       type: object
@@ -2701,6 +2783,266 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Initialization failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/sponsors:
+    post:
+      tags:
+        - Admin - Sponsors
+      summary: Create a new sponsor or reactivate existing inactive sponsor
+      description: Create a new sponsor or reactivate an existing inactive sponsor with updated settings (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSponsorRequest'
+      responses:
+        '201':
+          description: Sponsor created or reactivated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Sponsor'
+        '400':
+          description: Validation error or invalid sponsor user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Sponsor user not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Sponsor already active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Admin - Sponsors
+      summary: List all sponsors with pagination and filtering
+      description: Retrieve a paginated list of sponsors with optional filtering (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of sponsors per page
+        - name: sponsorUserEmail
+          in: query
+          schema:
+            type: string
+            format: email
+          description: Filter by sponsor user email
+        - name: includeInactive
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Include inactive sponsors in the results
+      responses:
+        '200':
+          description: List of sponsors retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SponsorPaginationResult'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/sponsors/{sponsorId}:
+    get:
+      tags:
+        - Admin - Sponsors
+      summary: Get sponsor by ID
+      description: Retrieve a specific sponsor by their ID (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sponsorId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Unique sponsor identifier
+      responses:
+        '200':
+          description: Sponsor details retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Sponsor'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Sponsor not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Admin - Sponsors
+      summary: Deactivate sponsor (soft delete)
+      description: Deactivate a sponsor by setting isActive to false, preserving audit trail (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sponsorId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Unique sponsor identifier
+      responses:
+        '200':
+          description: Sponsor deactivated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: "Sponsor deactivated successfully"
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Sponsor not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Sponsor already inactive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
           content:
             application/json:
               schema:

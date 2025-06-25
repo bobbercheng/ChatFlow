@@ -25,6 +25,11 @@ export enum MessageDeliveryStatus {
   FAILED = 'FAILED'
 }
 
+export enum SponsorTargetFilter {
+  NEW_USER = 'new_user',
+  EVERYONE = 'everyone'
+}
+
 // Core document interfaces
 export interface FirestoreUser {
   email: string; // Used as document ID
@@ -73,6 +78,17 @@ export interface FirestoreMessageStatus {
   readAt?: FirestoreTimestamp;
 }
 
+export interface FirestoreSponsor {
+  id: string; // Auto-generated document ID
+  sponsorUserEmail: string; // Email of the sponsor user
+  message: string; // The message to be sent
+  targetFilter: SponsorTargetFilter; // Who should receive the message
+  isActive: boolean; // Whether this sponsor is currently active
+  createdBy: string; // Admin email who created this sponsor
+  createdAt: FirestoreTimestamp;
+  updatedAt: FirestoreTimestamp;
+}
+
 // Extended interfaces with computed/joined data
 export interface ConversationWithParticipants extends FirestoreConversation {
   participants: Array<{
@@ -102,13 +118,21 @@ export interface CreateMessageData {
   messageType?: MessageType;
 }
 
+export interface CreateSponsorData {
+  sponsorUserEmail: string;
+  message: string;
+  targetFilter: SponsorTargetFilter;
+  createdBy: string;
+}
+
 // Collection and subcollection paths
 export const COLLECTIONS = {
   USERS: 'users',
   CONVERSATIONS: 'conversations',
   PARTICIPANTS: 'participants', // subcollection of conversations
   MESSAGES: 'messages', // subcollection of conversations  
-  MESSAGE_STATUS: 'status' // subcollection of messages
+  MESSAGE_STATUS: 'status', // subcollection of messages
+  SPONSORS: 'sponsors' // sponsor configurations
 } as const;
 
 // Helper functions for document paths

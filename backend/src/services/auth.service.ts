@@ -3,6 +3,7 @@ import { HttpError } from '../middleware/error';
 import { generateToken } from '../middleware/auth';
 import { databaseAdapter } from '../adapters';
 import { COLLECTIONS, FirestoreUser } from '../types/firestore';
+import { sponsorService } from './sponsor.service';
 
 export interface RegisterData {
   email: string;
@@ -46,6 +47,14 @@ export class AuthServiceFirestore {
     };
 
     const user = await databaseAdapter.create<FirestoreUser>(COLLECTIONS.USERS, email, userData);
+
+    // Process sponsor messages for new user (fire and forget - don't fail registration)
+    try {
+      await sponsorService.processSponsorMessages(email, true);
+    } catch (error) {
+      // Log error but don't fail registration
+      console.error('Failed to process sponsor messages for new user:', error);
+    }
 
     // Generate token
     const token = generateToken(email);

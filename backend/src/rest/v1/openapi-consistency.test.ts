@@ -64,6 +64,11 @@ function normalizePath(path: string, baseRoute: string = ''): string {
     normalized = `/${baseRoute}${normalized}`;
   }
   
+  // Remove trailing slashes for consistent comparison
+  if (normalized.endsWith('/') && normalized !== '/') {
+    normalized = normalized.slice(0, -1);
+  }
+  
   return normalized;
 }
 
@@ -124,6 +129,9 @@ describe('OpenAPI-Routes Consistency', () => {
            case 'keys':
              fullPath = `/keys${route.path}`;
              break;
+           case 'sponsors':
+             fullPath = `/admin/sponsors${route.path}`;
+             break;
          }
         
         return {
@@ -140,13 +148,17 @@ describe('OpenAPI-Routes Consistency', () => {
     const missingFromOpenAPI: Array<{ method: string; path: string; file: string }> = [];
     
     for (const route of allRoutes) {
+      const normalizedRoutePath = normalizePath(route.path);
       const found = openApiPaths.some(apiPath => 
         apiPath.method === route.method && 
-        normalizePath(apiPath.path) === route.path
+        normalizePath(apiPath.path) === normalizedRoutePath
       );
       
       if (!found) {
-        missingFromOpenAPI.push(route);
+        missingFromOpenAPI.push({
+          ...route,
+          path: normalizedRoutePath
+        });
       }
     }
     
@@ -166,7 +178,7 @@ describe('OpenAPI-Routes Consistency', () => {
       const normalizedApiPath = normalizePath(apiPath.path);
       const found = allRoutes.some(route => 
         route.method === apiPath.method && 
-        route.path === normalizedApiPath
+        normalizePath(route.path) === normalizedApiPath
       );
       
       if (!found) {
