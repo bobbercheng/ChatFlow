@@ -1,0 +1,37 @@
+{
+  "css.lint.unknownAtRules": "ignore",
+  "css.lint.validProperties": [],
+  "css.validate": false,
+  "scss.validate": false,
+  "less.validate": false,
+  "stylelint.enable": false,
+  "salesforcedx-vscode-core.enable": false,
+  "salesforcedx-vscode-lightning.enable": false,
+  "salesforcedx-vscode-apex.enable": false,
+  "salesforcedx-vscode-visualforce.enable": false,
+  "slds.enable": false,
+  "slds.validation": false,
+  "slds.utilityClassValidation": false,
+  "salesforce.enable": false,
+  "lwc.enable": false,
+  "aura.enable": false,
+  "eslint.options": {
+    "rules": {
+      "slds/no-utility-classes": "off",
+      "slds/utility-classes": "off",
+      "@salesforce/slds-linting": "off"
+    }
+  },
+  "emmet.includeLanguages": {
+    "css": "css"
+  },
+  "emmet.excludeLanguages": ["slds", "lwc"],
+  "files.associations": {
+    "*.css": "css",
+    "*.html": "html"
+  },
+  "workbench.settings.enableNaturalLanguageSearch": false,
+  "extensions.ignoreRecommendations": true,
+  "html.validate.styles": false,
+  "html.validate.scripts": false
+} 

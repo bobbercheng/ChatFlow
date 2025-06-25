@@ -318,6 +318,7 @@ A simple frontend demo is available at `frontend/` directory. It provides:
 - POC to delegate a participant in a conversation to local OpenAI compatible LLM. -  Done.
 - Add conversation list. - Done.
 - Sponsor messages - Done.
+- Register new user. - Done.
 - Register bot user with web webhook and OpenAI compatible LLM.
 - Invite others and share conversation link.
 - SSO login.

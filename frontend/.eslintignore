@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+coverage/
+*.d.ts
+*.min.js
+config.js
+config.example.js
+scripts/deploy.js
+**/*.config.js
+**/*.config.ts
+vite.config.ts 

@@ -35,6 +35,7 @@ export class ChatFlowApp {
     private searchComponent: SearchComponent | null = null;
     private conversationSidebar: ConversationSidebar | null = null;
     private isLlmDelegationEnabled = false;
+    private currentForm: 'login' | 'register' = 'login';
 
     constructor() {
         console.log('🚀 ChatFlow Frontend Starting...');
@@ -52,6 +53,7 @@ export class ChatFlowApp {
             this.initializeWebSocket(token);
             this.showMainInterface();
         } else {
+            this.currentForm = 'login'; // Ensure we start with login form
             this.showLoginForm();
         }
 
@@ -68,13 +70,35 @@ export class ChatFlowApp {
         const loginBtn = document.getElementById('loginBtn') as HTMLButtonElement;
         const emailInput = document.getElementById('email') as HTMLInputElement;
         const passwordInput = document.getElementById('password') as HTMLInputElement;
+        const showRegisterLink = document.getElementById('showRegisterLink') as HTMLAnchorElement;
+
+        // Registration form events
+        const registerBtn = document.getElementById('registerBtn') as HTMLButtonElement;
+        const showLoginLink = document.getElementById('showLoginLink') as HTMLAnchorElement;
+        const displayNameInput = document.getElementById('displayName') as HTMLInputElement;
 
         if (loginBtn) {
             loginBtn.addEventListener('click', this.handleLoginBound);
         }
 
+        if (registerBtn) {
+            registerBtn.addEventListener('click', this.handleRegisterBound);
+        }
+
         if (passwordInput) {
             passwordInput.addEventListener('keypress', this.handlePasswordKeyPressBound);
+        }
+
+        if (displayNameInput) {
+            displayNameInput.addEventListener('keypress', this.handleRegisterKeyPressBound);
+        }
+
+        if (showRegisterLink) {
+            showRegisterLink.addEventListener('click', this.handleShowRegisterBound);
+        }
+
+        if (showLoginLink) {
+            showLoginLink.addEventListener('click', this.handleShowLoginBound);
         }
 
         // Main interface events
@@ -122,8 +146,6 @@ export class ChatFlowApp {
             messageInput.addEventListener('keypress', this.handleMessageKeyPressBound);
         }
 
-
-
         if (logoutBtn) {
             logoutBtn.addEventListener('click', this.handleLogoutBound);
         }
@@ -153,6 +175,21 @@ export class ChatFlowApp {
     private handleLlmToggleBound = (e: Event) => {
         const target = e.target as HTMLInputElement;
         this.handleLlmToggle(target.checked);
+    };
+
+    private handleRegisterBound = () => this.handleRegister();
+    private handleRegisterKeyPressBound = (e: KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            this.handleRegister();
+        }
+    };
+    private handleShowRegisterBound = (e: Event) => {
+        e.preventDefault();
+        this.showRegisterForm();
+    };
+    private handleShowLoginBound = (e: Event) => {
+        e.preventDefault();
+        this.showLoginFormView();
     };
 
     private removeEventListeners() {
@@ -388,6 +425,7 @@ export class ChatFlowApp {
         this.conversationId = '';
         this.connectionStatus = 'Disconnected';
         this.isInitializingWebSocket = false;
+        this.currentForm = 'login'; // Reset to login form
         
         if (this.wsUnsubscribe) {
             this.wsUnsubscribe();
@@ -725,6 +763,14 @@ export class ChatFlowApp {
         }
     }
 
+    private showRegisterError(message: string) {
+        const errorDiv = document.getElementById('registerError');
+        if (errorDiv) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+    }
+
     private async handleSearch() {
         const searchInput = document.getElementById('searchInput') as HTMLInputElement;
         const searchResults = document.getElementById('searchResults') as HTMLElement;
@@ -907,30 +953,142 @@ export class ChatFlowApp {
         const app = document.getElementById('app');
         if (!app) return;
 
-        app.innerHTML = `
-            <div class="chat-app">
-                <div class="header">
-                    <h1>💬 ${config.APP_NAME}</h1>
-                </div>
-                <div class="login-container">
-                    <div class="login-form">
-                        <h2>🔐 Login to ChatFlow</h2>
-                        <div class="form-group">
-                            <label for="email">📧 Email:</label>
-                            <input id="email" type="email" placeholder="Enter your email" />
+        if (this.currentForm === 'login') {
+            app.innerHTML = `
+                <div class="chat-app">
+                    <div class="header">
+                        <h1>💬 ${config.APP_NAME}</h1>
+                    </div>
+                    <div class="login-container">
+                        <div class="login-form">
+                            <h2>🔐 Login to ChatFlow</h2>
+                            <div class="form-group">
+                                <label for="email">📧 Email:</label>
+                                <input id="email" type="email" placeholder="Enter your email" />
+                            </div>
+                            <div class="form-group">
+                                <label for="password">🔒 Password:</label>
+                                <input id="password" type="password" placeholder="Enter your password" />
+                            </div>
+                            <button id="loginBtn" class="login-btn">🚀 Login</button>
+                            <div id="loginError" class="error-message" style="display: none;"></div>
+                            <div class="form-footer">
+                                <p>Don't have an account? <a id="showRegisterLink" href="#" class="register-link">Register here</a></p>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="password">🔒 Password:</label>
-                            <input id="password" type="password" placeholder="Enter your password" />
-                        </div>
-                        <button id="loginBtn" class="login-btn">🚀 Login</button>
-                        <div id="loginError" class="error-message" style="display: none;"></div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
+        } else {
+            app.innerHTML = `
+                <div class="chat-app">
+                    <div class="header">
+                        <h1>💬 ${config.APP_NAME}</h1>
+                    </div>
+                    <div class="login-container">
+                        <div class="login-form">
+                            <h2>📝 Register for ChatFlow</h2>
+                            <div class="form-group">
+                                <label for="email">📧 Email:</label>
+                                <input id="email" type="email" placeholder="Enter your email" />
+                            </div>
+                            <div class="form-group">
+                                <label for="displayName">👤 Display Name:</label>
+                                <input id="displayName" type="text" placeholder="Enter your display name" />
+                            </div>
+                            <div class="form-group">
+                                <label for="password">🔒 Password:</label>
+                                <input id="password" type="password" placeholder="Enter your password" />
+                            </div>
+                            <button id="registerBtn" class="login-btn">✨ Register</button>
+                            <div id="registerError" class="error-message" style="display: none;"></div>
+                            <div class="form-footer">
+                                <p>Already have an account? <a id="showLoginLink" href="#" class="register-link">Login here</a></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
 
         this.bindEvents();
+    }
+
+    private showRegisterForm() {
+        this.currentForm = 'register';
+        this.showLoginForm();
+    }
+
+    private showLoginFormView() {
+        this.currentForm = 'login';
+        this.showLoginForm();
+    }
+
+    private async handleRegister() {
+        const emailInput = document.getElementById('email') as HTMLInputElement;
+        const displayNameInput = document.getElementById('displayName') as HTMLInputElement;
+        const passwordInput = document.getElementById('password') as HTMLInputElement;
+        const registerBtn = document.getElementById('registerBtn') as HTMLButtonElement;
+        const errorDiv = document.getElementById('registerError') as HTMLDivElement;
+
+        const email = emailInput.value.trim();
+        const displayName = displayNameInput.value.trim();
+        const password = passwordInput.value.trim();
+
+        if (!email || !displayName || !password) {
+            this.showRegisterError('Please fill in all fields');
+            return;
+        }
+
+        if (password.length < 6) {
+            this.showRegisterError('Password must be at least 6 characters long');
+            return;
+        }
+
+        if (registerBtn.disabled) {
+            return;
+        }
+
+        registerBtn.disabled = true;
+        registerBtn.textContent = 'Registering...';
+        errorDiv.style.display = 'none';
+
+        try {
+            const response = await apiService.register({ email, password, displayName });
+
+            if (response.success && response.data) {
+                // Registration successful, proceed with automatic login
+                this.currentUser = response.data;
+                this.isLoggedIn = true;
+                // Note: Register API might return user data directly, will need to get token separately
+                // Let's try to login after successful registration
+                const loginResponse = await apiService.login({ email, password });
+                if (loginResponse.success && loginResponse.data) {
+                    apiService.setToken(loginResponse.data.token);
+                    
+                    // Initialize encryption system after authentication
+                    try {
+                        await apiService.initializeEncryption();
+                        console.log('🔐 Encryption system ready');
+                    } catch (error) {
+                        console.warn('🔐 Encryption initialization failed, continuing without encryption:', error);
+                    }
+                    
+                    await this.initializeWebSocket(loginResponse.data.token);
+                    this.showMainInterface();
+                } else {
+                    this.showRegisterError('Registration successful but login failed. Please try logging in manually.');
+                }
+            } else {
+                this.showRegisterError(response.error?.message || 'Registration failed');
+            }
+        } catch (error) {
+            this.showRegisterError('Network error. Please try again.');
+            console.error('Registration error:', error);
+        } finally {
+            registerBtn.disabled = false;
+            registerBtn.textContent = '✨ Register';
+        }
     }
 
     private showMainInterface() {
