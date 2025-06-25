@@ -1058,12 +1058,14 @@ export class ChatFlowApp {
 
             if (response.success && response.data) {
                 // Registration successful, proceed with automatic login
-                this.currentUser = response.data;
-                this.isLoggedIn = true;
-                // Note: Register API might return user data directly, will need to get token separately
-                // Let's try to login after successful registration
+                console.log('Registration successful, logging in automatically...');
+                
+                // Don't set currentUser from registration response, wait for login response
                 const loginResponse = await apiService.login({ email, password });
                 if (loginResponse.success && loginResponse.data) {
+                    // Set currentUser from login response which has complete user data
+                    this.currentUser = loginResponse.data.user;
+                    this.isLoggedIn = true;
                     apiService.setToken(loginResponse.data.token);
                     
                     // Initialize encryption system after authentication
