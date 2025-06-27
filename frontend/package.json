@@ -11,12 +11,22 @@
     "type-check": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.js --fix",
     "lint:check": "eslint . --ext .ts,.js",
+    "lint:css": "stylelint '**/*.css' --fix",
+    "lint:css:check": "stylelint '**/*.css'",
+    "lint:all": "npm run lint:check && npm run lint:css:check",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:layout": "playwright test",
+    "test:layout:headed": "playwright test --headed",
+    "test:layout:ui": "playwright test --ui",
+    "test:layout:report": "playwright show-report",
+    "test:all": "npm run test && npm run test:layout",
+    "quality": "npm run lint:all && npm run type-check && npm run test:all",
     "deploy": "node scripts/deploy.js",
     "deploy:build-only": "node scripts/deploy.js --build-only"
   },
   "devDependencies": {
+    "@playwright/test": "^1.53.1",
     "@types/jest": "^29.5.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node-fetch": "^2.6.12",
@@ -27,6 +37,12 @@
     "jest-environment-jsdom": "^29.5.0",
     "js-yaml": "^4.1.0",
     "node-fetch": "^2.7.0",
+    "stylelint": "^16.21.0",
+    "stylelint-config-css-modules": "^4.5.0",
+    "stylelint-config-recess-order": "^7.1.0",
+    "stylelint-config-standard": "^38.0.0",
+    "stylelint-order": "^7.0.0",
+    "stylelint-scss": "^6.12.1",
     "ts-jest": "^29.4.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
@@ -41,7 +57,13 @@
       "^.+\\.ts$": "ts-jest"
     },
     "testMatch": [
-      "**/*.test.ts"
+      "<rootDir>/src/**/*.test.ts"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/tests/",
+      "/playwright-report/",
+      "/test-results/"
     ],
     "setupFilesAfterEnv": [
       "<rootDir>/src/test-setup.ts"

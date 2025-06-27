@@ -140,6 +140,8 @@ body {
     padding: 2rem;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
     margin: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 /* Chat Header */
@@ -588,6 +590,8 @@ input:checked + .slider:before {
         margin: 0;
         border-radius: 12px;
         height: calc(100vh - 160px);
+        width: 100%;
+        box-sizing: border-box;
     }
     
     .conversation-info {
@@ -2083,12 +2087,13 @@ input:checked + .slider:before {
     
     /* Fix chat container layout on mobile */
     .main-content .chat-container {
-        padding: 0.5rem;
+        padding: 1rem;
         margin: 0;
         background: transparent;
         border-radius: 0;
         box-shadow: none;
         width: 100%;
+        box-sizing: border-box;
         height: calc(100vh - 250px); /* Conservative height for mobile */
         max-height: calc(100vh - 250px); /* Prevent overflow on mobile */
     }

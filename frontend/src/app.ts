@@ -423,9 +423,14 @@ export class ChatFlowApp {
         this.currentUser = null;
         this.messages = [];
         this.conversationId = '';
+        this.currentConversation = null;
         this.connectionStatus = 'Disconnected';
         this.isInitializingWebSocket = false;
         this.currentForm = 'login'; // Reset to login form
+        
+        // Properly cleanup sidebar instance
+        this.conversationSidebar = null;
+        this.searchComponent = null;
         
         if (this.wsUnsubscribe) {
             this.wsUnsubscribe();
@@ -712,15 +717,24 @@ export class ChatFlowApp {
         const messagesList = document.getElementById('messagesList');
         if (!messagesList) return;
 
-        messagesList.innerHTML = this.messages.map(message => `
-            <div class="${message.cssClass}" data-message-id="${message.id}">
-                <div class="message-header">
-                    <span class="sender">${message.senderDisplayName}</span>
-                    <span class="timestamp">${message.formattedTime}</span>
+        messagesList.innerHTML = this.messages.map(message => {
+            // Extra safety: ensure content is a string for display
+            let displayContent = message.content || '';
+            if (typeof displayContent === 'object' && displayContent !== null) {
+                displayContent = JSON.stringify(displayContent);
+                console.warn('Message content is still an object during display, converting:', displayContent);
+            }
+            
+            return `
+                <div class="${message.cssClass}" data-message-id="${message.id}">
+                    <div class="message-header">
+                        <span class="sender">${message.senderDisplayName}</span>
+                        <span class="timestamp">${message.formattedTime}</span>
+                    </div>
+                    <div class="message-content">${this.linkifyText(String(displayContent))}</div>
                 </div>
-                <div class="message-content">${this.linkifyText(message.content || '')}</div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
         // Handle scrolling based on message ordering (newest first)
         if (scrollBehavior === 'top') {
@@ -875,8 +889,25 @@ export class ChatFlowApp {
                         createdAt = new Date(createdAt._seconds * 1000 + createdAt._nanoseconds / 1000000).toISOString();
                     }
                     
+                    // Ensure content is a string to prevent [object Object] display
+                    let content = message.content;
+                    if (typeof content === 'object' && content !== null) {
+                        // Handle encrypted content objects
+                        if (content.data && content.encryption) {
+                            // This is an encrypted message object, keep as-is for decryption
+                            content = content;
+                        } else {
+                            // Unknown object format, stringify it
+                            content = JSON.stringify(content);
+                            console.warn('Message content is an object, converting to string:', content);
+                        }
+                    } else if (typeof content !== 'string') {
+                        content = String(content || '');
+                    }
+                    
                     return {
                         ...message,
+                        content,
                         createdAt,
                         cssClass: this.getMessageCssClass(message),
                         formattedTime: this.formatTime(createdAt)
@@ -1093,10 +1124,18 @@ export class ChatFlowApp {
         }
     }
 
+    private loadSidebarCollapsedState(): boolean {
+        const stored = localStorage.getItem('chatflow_sidebar_collapsed');
+        return stored === 'true';
+    }
+
     private showMainInterface() {
         const app = document.getElementById('app');
         if (!app) return;
 
+        // Read sidebar collapsed state early to apply correct layout immediately
+        const isSidebarCollapsed = this.loadSidebarCollapsedState();
+        
         app.innerHTML = `
             <!-- Conversation Sidebar -->
             <div id="conversationSidebarContainer"></div>
@@ -1172,6 +1211,15 @@ export class ChatFlowApp {
                 </div>
             </div>
         `;
+
+        // Apply layout classes immediately to prevent wrong initial layout
+        document.body.classList.toggle('sidebar-collapsed', isSidebarCollapsed);
+        const mainContent = document.querySelector('.main-content') as HTMLElement;
+        if (mainContent) {
+            mainContent.classList.toggle('sidebar-collapsed', isSidebarCollapsed);
+        }
+        
+        console.log('🎨 Initial layout applied:', isSidebarCollapsed ? 'sidebar collapsed' : 'sidebar expanded');
 
         // Use setTimeout to ensure DOM is fully ready before binding events
         setTimeout(() => {

@@ -19,14 +19,12 @@ module.exports = [
       '@typescript-eslint': typescript
     },
     rules: {
-      // Disable SLDS utility class suggestions and rules
-      'slds/no-utility-classes': 'off',
-      'slds/utility-classes': 'off',
-      '@salesforce/slds-linting': 'off'
-    },
-    settings: {
-      // Disable SLDS-related settings
-      'slds': false
+      // TypeScript and JavaScript linting rules
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-explicit-any': 'warn',
+      'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
+      'prefer-const': 'error',
+      'no-var': 'error'
     }
   },
   {
@@ -42,7 +40,9 @@ module.exports = [
       'scripts/deploy.js',
       '**/*.config.js',
       '**/*.config.ts',
-      'vite.config.ts'
+      'vite.config.ts',
+      'playwright.config.ts',
+      'tests/layout/**/*'
     ]
   }
 ]; 
