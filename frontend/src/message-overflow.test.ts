@@ -75,7 +75,7 @@ describe('Message Overflow and Text Wrapping', () => {
         mockApp = {
             messages: [],
             currentUser: { email: 'test@example.com' },
-            updateMessagesDisplay: function(scrollBehavior: 'top' | 'bottom' | 'none' = 'top') {
+            updateMessagesDisplay: function() {
                 const messagesList = document.getElementById('messagesList');
                 if (!messagesList) return;
 
@@ -121,7 +121,7 @@ describe('Message Overflow and Text Wrapping', () => {
                 this.updateMessagesDisplay('top');
             },
             // Mock the navigateToConversation method
-            navigateToConversation: async function(conversationId: string, messageId?: string) {
+            navigateToConversation: async function(conversationId: string) {
                 // Simulate the actual navigation behavior
                 this.conversationId = conversationId;
                 
@@ -360,7 +360,7 @@ describe('Message Overflow and Text Wrapping', () => {
         const messageElements = mockMessagesList.querySelectorAll('.message');
         expect(messageElements).toHaveLength(2);
         
-        messageElements.forEach((messageElement, index) => {
+        messageElements.forEach((messageElement) => {
             const messageRect = messageElement.getBoundingClientRect();
             const containerRect = mockMessagesList.getBoundingClientRect();
             
@@ -436,7 +436,7 @@ describe('Message Overflow and Text Wrapping', () => {
         expect(messageElements).toHaveLength(3);
         
         // Verify each message doesn't overflow
-        messageElements.forEach((messageElement, index) => {
+        messageElements.forEach((messageElement) => {
             const messageRect = messageElement.getBoundingClientRect();
             const containerRect = mockMessagesList.getBoundingClientRect();
             

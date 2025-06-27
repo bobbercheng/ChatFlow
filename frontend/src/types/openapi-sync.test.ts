@@ -2,9 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
 
-// Import frontend types to validate against OpenAPI
-import * as FrontendTypes from './index.js';
-
 // Type to extract property definitions from OpenAPI schema
 interface OpenAPIProperty {
   type: string;

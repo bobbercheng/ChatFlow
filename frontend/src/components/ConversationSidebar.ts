@@ -1,5 +1,5 @@
 import { apiService } from '../services/apiService.js';
-import { Conversation, ConversationParticipant, Message } from '../types/index.js';
+import { Conversation, Message } from '../types/index.js';
 
 // Extended conversation type with additional UI properties
 interface ConversationWithMetadata extends Conversation {
@@ -253,6 +253,7 @@ export class ConversationSidebar {
         try {
             return date.toLocaleDateString();
         } catch (error) {
+            console.error('Error getting time ago:', error);
             return 'recently';
         }
     }

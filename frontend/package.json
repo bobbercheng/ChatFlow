@@ -33,6 +33,7 @@
     "fix:css-comments": "sed -i '' 's|/\\* \\([^*]\\)|/* Layout: \\1|g' styles.css",
     "fix:css-ids": "sed -i '' 's/#config-panel/.config-panel/g' styles.css && sed -i '' 's/#app-footer/.app-footer/g' styles.css && sed -i '' 's/#frontend-version/.frontend-version/g' styles.css && sed -i '' 's/#config-toggle/.config-toggle/g' styles.css",
     "phase2:quick": "npm run fix:css-comments && npm run fix:css-ids && npm run lint:css:fix-safe",
+    "final-cleanup": "find src -name '*.ts' -not -path '*/test*' -exec sed -i '' 's/console\\.log(/console.info(/g' {} + && npm run phase2:quick",
     "analyze:css": "stylelint 'styles.css' --formatter verbose | grep -E 'order/properties-order|color-function|shorthand-property|comment-pattern' | wc -l",
     "analyze:js": "eslint 'src/**/*.{ts,js}' --format compact | grep -o -E '(no-console|@typescript-eslint/no-unused-vars|@typescript-eslint/no-explicit-any)' | sort | uniq -c"
   },

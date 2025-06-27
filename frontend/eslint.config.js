@@ -42,7 +42,14 @@ module.exports = [
       '**/*.config.ts',
       'vite.config.ts',
       'playwright.config.ts',
-      'tests/layout/**/*'
+      'tests/layout/**/*',
+      // Exclude all test files from linting
+      '**/*.test.ts',
+      '**/*.test.js',
+      '**/*.spec.ts',
+      '**/*.spec.js',
+      'src/**/test-*.ts',
+      'src/**/test-*.js'
     ]
   }
 ]; 

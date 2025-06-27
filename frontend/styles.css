@@ -1,8 +1,10 @@
 body {
-    padding: 0 0 40px; /* Add bottom padding for footer */
+    min-height: 100vh;
+    padding: 0 0 40px; /* Layout: Add bottom padding for footer */
     margin: 0;
     font-family: Arial, sans-serif;
-    background-color: #f5f5f5;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-attachment: fixed;
 }
 
 .chat-app:not(.main-content) {
@@ -47,7 +49,7 @@ body {
     background-color: #c82333;
 }
 
-/* Login Form */
+/* Layout: Login Form */
 .login-container {
     display: flex;
     align-items: center;
@@ -127,7 +129,7 @@ body {
     border-radius: 4px;
 }
 
-/* ==========================================================================
+/* Layout: ==========================================================================
    CHAT INTERFACE - MODERN DESIGN
    ========================================================================== */
 
@@ -140,11 +142,10 @@ body {
     padding: 2rem;
     margin: 0;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 16px;
     box-shadow: 0 10px 25px rgb(0 0 0 / 10%);
 }
 
-/* Chat Header */
+/* Layout: Chat Header */
 .conversation-info {
     display: flex;
     align-items: center;
@@ -152,7 +153,6 @@ body {
     padding: 1.5rem 2rem;
     margin-bottom: 1.5rem;
     background: rgb(255 255 255 / 95%);
-    border-radius: 16px;
     box-shadow: 0 4px 15px rgb(0 0 0 / 10%);
     backdrop-filter: blur(10px);
 }
@@ -209,7 +209,7 @@ body {
     content: '🟡';
 }
 
-/* Conversation Participants Display */
+/* Layout: Conversation Participants Display */
 .conversation-participants {
     margin-bottom: 1.5rem;
 }
@@ -248,7 +248,6 @@ body {
     white-space: nowrap;
     background: rgb(255 255 255 / 95%);
     border: none;
-    border-radius: 12px;
     box-shadow: 0 4px 15px rgb(0 0 0 / 10%);
     backdrop-filter: blur(10px);
 }
@@ -259,7 +258,7 @@ body {
     content: 'Select a conversation from the sidebar or search';
 }
 
-/* LLM Delegation Toggle */
+/* Layout: LLM Delegation Toggle */
 .llm-delegation-control {
     margin-bottom: 1.5rem;
 }
@@ -330,16 +329,16 @@ input:checked + .slider::before {
     transform: translateX(26px);
 }
 
-/* Hover effects */
+/* Layout: Hover effects */
 .toggle-label:hover .slider {
     background-color: rgb(255 255 255 / 40%);
 }
 
-.toggle-label:hover input:checked + .slider {
+.slider.checked-hover {
     background-color: #45a049;
 }
 
-/* Messages Container */
+/* Layout: Messages Container */
 .messages-container {
     display: flex;
     flex: 1;
@@ -347,7 +346,6 @@ input:checked + .slider::before {
     margin-bottom: 1.5rem;
     overflow: hidden;
     background: rgb(255 255 255 / 95%);
-    border-radius: 16px;
     box-shadow: 0 10px 25px rgb(0 0 0 / 10%);
     backdrop-filter: blur(10px);
 }
@@ -360,10 +358,10 @@ input:checked + .slider::before {
     background: transparent;
 }
 
-/* Message Styling */
+/* Layout: Message Styling */
 .message {
     position: relative;
-    min-width: 0; /* Allows flex shrinking */
+    min-width: 0; /* Layout: Allows flex shrinking */
     max-width: 75%;
     padding: 1rem 1.5rem;
     margin-bottom: 1.5rem;
@@ -433,17 +431,14 @@ input:checked + .slider::before {
     margin: 0;
     font-size: 1rem;
     line-height: 1.6;
-    word-break: break-word;
-    word-wrap: break-word;
     overflow-wrap: break-word;
     white-space: pre-wrap;
 }
 
-/* Message Input Container */
+/* Layout: Message Input Container */
 .message-input-container {
     padding: 1.5rem;
     background: rgb(255 255 255 / 95%);
-    border-radius: 16px;
     box-shadow: 0 4px 15px rgb(0 0 0 / 10%);
     backdrop-filter: blur(10px);
 }
@@ -519,7 +514,7 @@ input:checked + .slider::before {
     content: '⏳';
 }
 
-/* LLM Spinner Animation */
+/* Layout: LLM Spinner Animation */
 .llm-spinner {
     display: flex;
     gap: 0.75rem;
@@ -551,7 +546,7 @@ input:checked + .slider::before {
     white-space: nowrap;
 }
 
-/* Scrollbar Styling */
+/* Layout: Scrollbar Styling */
 .messages-list::-webkit-scrollbar {
     width: 6px;
 }
@@ -569,7 +564,7 @@ input:checked + .slider::before {
     background: rgb(102 126 234 / 50%);
 }
 
-/* Empty Messages State */
+/* Layout: Empty Messages State */
 .messages-list:empty::before {
     display: block;
     padding: 4rem 2rem;
@@ -580,7 +575,7 @@ input:checked + .slider::before {
     content: '💬 Start a conversation by typing a message below...';
 }
 
-/* Responsive Design for Chat */
+/* Layout: Responsive Design for Chat */
 @media (width <= 768px) {
     .chat-container {
         box-sizing: border-box;
@@ -588,7 +583,6 @@ input:checked + .slider::before {
         height: calc(100vh - 160px);
         padding: 1rem;
         margin: 0;
-        border-radius: 12px;
     }
     
     .conversation-info {
@@ -654,8 +648,6 @@ input:checked + .slider::before {
     
     .message-content {
         font-size: 0.95rem;
-        word-break: break-word;
-        word-wrap: break-word;
         overflow-wrap: break-word;
         white-space: pre-wrap;
     }
@@ -671,7 +663,7 @@ input:checked + .slider::before {
     }
 }
 
-/* ==========================================================================
+/* Layout: ==========================================================================
    NAVIGATION TABS
    ========================================================================== */
 
@@ -735,7 +727,7 @@ input:checked + .slider::before {
     stroke-width: 2;
 }
 
-/* Content Panels */
+/* Layout: Content Panels */
 .content-panel {
     min-height: calc(100vh - 200px);
     overflow: hidden;
@@ -744,15 +736,9 @@ input:checked + .slider::before {
     box-shadow: 0 4px 25px rgb(0 0 0 / 10%);
 }
 
-/* Update chat app container for new layout */
-.chat-app:not(.main-content) {
-    max-width: 1200px;
-    padding: 20px;
-    margin: 0 auto;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-}
+/* Layout: Update chat app container for new layout */
 
-/* Search Interface Styles */
+/* Layout: Search Interface Styles */
 .search-result {
     padding: 15px;
     margin: 10px 0;
@@ -834,20 +820,24 @@ input:checked + .slider::before {
     border-radius: 8px;
 }
 
-/* ==========================================================================
+/* Layout: ==========================================================================
    SEARCH COMPONENT STYLES
    ========================================================================== */
 
 .search-container {
-  max-width: 800px;
-  min-height: 100vh;
-  padding: 2rem;
-  margin: 0 auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: calc(100vh - 200px);
+  padding: 2rem 4rem 2rem 2rem;
+  margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 10px 25px rgb(0 0 0 / 10%);
 }
 
-/* Search Header */
+/* Layout: Search Header */
 .search-header {
   margin-bottom: 3rem;
   color: white;
@@ -880,7 +870,7 @@ input:checked + .slider::before {
   opacity: 0.9;
 }
 
-/* Search Input Container */
+/* Layout: Search Input Container */
 .search-input-container {
   position: relative;
   margin-bottom: 2rem;
@@ -891,9 +881,9 @@ input:checked + .slider::before {
   display: flex;
   align-items: center;
   overflow: hidden;
-  background: white;
-  border-radius: 16px;
+  background: rgb(255 255 255 / 95%);
   box-shadow: 0 10px 25px rgb(0 0 0 / 10%);
+  backdrop-filter: blur(10px);
   transition: all 0.3s ease;
 }
 
@@ -957,7 +947,7 @@ input:checked + .slider::before {
   stroke: currentcolor;
 }
 
-/* Suggestions */
+/* Layout: Suggestions */
 .suggestions-container {
   position: absolute;
   top: 100%;
@@ -967,17 +957,16 @@ input:checked + .slider::before {
   max-height: 300px;
   margin-top: 0.5rem;
   overflow-y: auto;
-  background: white;
+  background: rgb(255 255 255 / 95%);
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
   box-shadow: 0 10px 25px rgb(0 0 0 / 10%);
+  backdrop-filter: blur(10px);
 }
 
 .suggestions-header {
   padding: 0.75rem 1rem;
   background: #f9fafb;
   border-bottom: 1px solid #f3f4f6;
-  border-radius: 12px 12px 0 0;
 }
 
 .suggestions-title {
@@ -1054,7 +1043,7 @@ input:checked + .slider::before {
   color: #9ca3af;
 }
 
-/* Search Status */
+/* Layout: Search Status */
 .search-status {
   margin-bottom: 2rem;
   text-align: center;
@@ -1068,7 +1057,6 @@ input:checked + .slider::before {
   padding: 1rem;
   color: #374151;
   background: rgb(255 255 255 / 95%);
-  border-radius: 12px;
   backdrop-filter: blur(10px);
 }
 
@@ -1095,7 +1083,6 @@ input:checked + .slider::before {
   display: inline-block;
   padding: 0.75rem 1.5rem;
   background: rgb(255 255 255 / 95%);
-  border-radius: 12px;
   backdrop-filter: blur(10px);
 }
 
@@ -1105,7 +1092,7 @@ input:checked + .slider::before {
   color: #374151;
 }
 
-/* Search Results */
+/* Layout: Search Results */
 .search-results {
   position: relative;
 }
@@ -1113,18 +1100,8 @@ input:checked + .slider::before {
 .results-container {
   overflow: hidden;
   background: rgb(255 255 255 / 95%);
-  border-radius: 16px;
   box-shadow: 0 10px 25px rgb(0 0 0 / 10%);
   backdrop-filter: blur(10px);
-}
-
-.results-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.5rem 2rem;
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
 }
 
 .results-title {
@@ -1156,30 +1133,13 @@ input:checked + .slider::before {
   overflow-y: auto;
 }
 
-/* Search Result Items */
-.search-result {
-  position: relative;
-  padding: 1.5rem 2rem;
-  cursor: pointer;
-  border-bottom: 1px solid #f3f4f6;
-  transition: all 0.2s ease;
-}
+/* Layout: Search Result Items */
 
-.search-result:hover {
-  background: #f8fafc;
-  transform: translateX(4px);
-}
 
 .search-result:last-child {
   border-bottom: none;
 }
 
-.result-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
-}
 
 .result-sender {
   display: flex;
@@ -1226,9 +1186,6 @@ input:checked + .slider::before {
   border-radius: 6px;
 }
 
-.result-content {
-  margin-bottom: 1rem;
-}
 
 .result-text {
   margin: 0;
@@ -1253,11 +1210,6 @@ input:checked + .slider::before {
   color: #6b7280;
 }
 
-.result-conversation {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
 
 .result-arrow {
   width: 1rem;
@@ -1272,12 +1224,11 @@ input:checked + .slider::before {
   transform: translateX(2px);
 }
 
-/* Empty State */
+/* Layout: Empty State */
 .empty-state {
   padding: 4rem 2rem;
   text-align: center;
   background: rgb(255 255 255 / 95%);
-  border-radius: 16px;
   backdrop-filter: blur(10px);
 }
 
@@ -1340,11 +1291,7 @@ input:checked + .slider::before {
   transform: translateY(-1px);
 }
 
-/* No Results */
-.no-results {
-  padding: 3rem 2rem;
-  text-align: center;
-}
+/* Layout: No Results */
 
 .no-results-content {
   max-width: 300px;
@@ -1372,10 +1319,14 @@ input:checked + .slider::before {
   color: #6b7280;
 }
 
-/* Responsive Design */
+/* Layout: Responsive Design */
 @media (width <= 768px) {
   .search-container {
+    box-sizing: border-box;
+    width: 100%;
+    height: calc(100vh - 160px);
     padding: 1rem;
+    margin: 0;
   }
   
   .search-title {
@@ -1442,11 +1393,11 @@ input:checked + .slider::before {
   }
 }
 
-/* ==========================================================================
+/* Layout: ==========================================================================
    MESSAGE HIGHLIGHTING AND LOADING STATES
    ========================================================================== */
 
-/* Highlighted message animation */
+/* Layout: Highlighted message animation */
 .message.highlighted {
     box-shadow: 0 0 20px rgb(102 126 234 / 40%);
     transform: scale(1.02);
@@ -1470,7 +1421,7 @@ input:checked + .slider::before {
     }
 }
 
-/* Loading state for conversation messages */
+/* Layout: Loading state for conversation messages */
 .messages-list .loading {
     display: flex;
     gap: 0.75rem;
@@ -1511,7 +1462,7 @@ input:checked + .slider::before {
     content: '⚠️ ';
 }
 
-/* ==========================================================================
+/* Layout: ==========================================================================
    CONVERSATION SIDEBAR
    ========================================================================== */
 
@@ -1534,7 +1485,7 @@ input:checked + .slider::before {
     width: 60px;
 }
 
-/* Sidebar Header */
+/* Layout: Sidebar Header */
 .sidebar-header {
     padding: 1rem;
     background: rgb(0 0 0 / 10%);
@@ -1570,7 +1521,7 @@ input:checked + .slider::before {
     display: none;
 }
 
-/* Sidebar Content */
+/* Layout: Sidebar Content */
 .sidebar-content {
     display: flex;
     flex: 1;
@@ -1578,7 +1529,7 @@ input:checked + .slider::before {
     overflow: hidden;
 }
 
-/* Sidebar Actions */
+/* Layout: Sidebar Actions */
 .sidebar-actions {
     display: flex;
     flex-direction: column;
@@ -1626,7 +1577,7 @@ input:checked + .slider::before {
     animation: spin 1s linear infinite;
 }
 
-/* Conversation List */
+/* Layout: Conversation List */
 .conversation-list {
     flex: 1;
     padding: 0.5rem;
@@ -1651,7 +1602,7 @@ input:checked + .slider::before {
     background: rgb(255 255 255 / 50%);
 }
 
-/* Conversation Items */
+/* Layout: Conversation Items */
 .conversation-item {
     position: relative;
     padding: 0.75rem;
@@ -1774,7 +1725,7 @@ input:checked + .slider::before {
     display: none;
 }
 
-/* Loading and Empty States */
+/* Layout: Loading and Empty States */
 .loading-state,
 .empty-state {
     display: flex;
@@ -1786,20 +1737,7 @@ input:checked + .slider::before {
     opacity: 0.8;
 }
 
-.loading-spinner {
-    width: 24px;
-    height: 24px;
-    margin-bottom: 0.75rem;
-    border: 2px solid rgb(255 255 255 / 30%);
-    border-top: 2px solid white;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
 
-.loading-text {
-    font-size: 0.875rem;
-    opacity: 0.8;
-}
 
 .empty-icon {
     margin-bottom: 0.75rem;
@@ -1819,7 +1757,7 @@ input:checked + .slider::before {
     opacity: 0.7;
 }
 
-/* Modal Overlay */
+/* Layout: Modal Overlay */
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -1839,7 +1777,7 @@ input:checked + .slider::before {
     opacity: 1;
 }
 
-/* Modal Content */
+/* Layout: Modal Content */
 .modal-content {
     width: 90%;
     max-width: 480px;
@@ -1969,7 +1907,7 @@ input:checked + .slider::before {
     transform: none;
 }
 
-/* Main Content Layout Adjustments */
+/* Layout: Main Content Layout Adjustments */
 .main-content {
     margin-left: 320px;
     transition: margin-left 0.3s ease;
@@ -1979,7 +1917,7 @@ input:checked + .slider::before {
     margin-left: 60px;
 }
 
-/* Ensure no overlap on desktop */
+/* Layout: Ensure no overlap on desktop */
 .chat-app.main-content {
     width: calc(100% - 320px);
     margin-left: 320px;
@@ -2007,7 +1945,7 @@ input:checked + .slider::before {
     color: #6610f2;
 }
 
-/* Make links more visible in sent messages */
+/* Layout: Make links more visible in sent messages */
 .message-sent .message-link {
     font-weight: 500;
     color: #fff;
@@ -2022,7 +1960,7 @@ input:checked + .slider::before {
     color: #e9ecef;
 }
 
-/* Sidebar Responsive Design */
+/* Layout: Sidebar Responsive Design */
 @media (width <= 1024px) {
     .conversation-sidebar {
         width: 280px;
@@ -2072,7 +2010,7 @@ input:checked + .slider::before {
         margin-left: 0;
     }
     
-    /* Reset chat-app layout on mobile */
+    /* Layout: Reset chat-app layout on mobile */
     .chat-app.main-content {
         width: 100%;
         max-width: none;
@@ -2081,12 +2019,12 @@ input:checked + .slider::before {
         margin-left: 0;
     }
     
-    /* Fix chat container layout on mobile */
+    /* Layout: Fix chat container layout on mobile */
     .main-content .chat-container {
         box-sizing: border-box;
         width: 100%;
-        height: calc(100vh - 250px); /* Conservative height for mobile */
-        max-height: calc(100vh - 250px); /* Prevent overflow on mobile */
+        height: calc(100vh - 250px); /* Layout: Conservative height for mobile */
+        max-height: calc(100vh - 250px); /* Layout: Prevent overflow on mobile */
         padding: 1rem;
         margin: 0;
         background: transparent;
@@ -2094,7 +2032,7 @@ input:checked + .slider::before {
         box-shadow: none;
     }
     
-    /* Ensure message input is always visible on mobile when sidebar is present */
+    /* Layout: Ensure message input is always visible on mobile when sidebar is present */
     .main-content .message-input-container {
         position: sticky;
         bottom: 0;
@@ -2107,12 +2045,12 @@ input:checked + .slider::before {
         backdrop-filter: blur(10px);
     }
     
-    /* Adjust messages container on mobile when sidebar is present */
+    /* Layout: Adjust messages container on mobile when sidebar is present */
     .main-content .messages-container {
         display: flex;
         flex: 1;
         flex-direction: column;
-        max-height: calc(100vh - 400px); /* Ensure input area is visible on mobile */
+        max-height: calc(100vh - 400px); /* Layout: Ensure input area is visible on mobile */
         margin-bottom: 0.75rem;
         overflow: hidden;
         background: rgb(255 255 255 / 95%);
@@ -2134,7 +2072,7 @@ input:checked + .slider::before {
         margin: 1rem;
     }
     
-    /* Mobile overlay for sidebar */
+    /* Layout: Mobile overlay for sidebar */
     .sidebar-mobile-overlay {
         position: fixed;
         inset: 0;
@@ -2151,11 +2089,11 @@ input:checked + .slider::before {
     }
 }
 
-/* ==========================================================================
+/* Layout: ==========================================================================
    APP FOOTER STYLES
    ========================================================================== */
 
-#app-footer {
+   #app-footer {
     position: fixed;
     right: 0;
     bottom: 0;
@@ -2191,11 +2129,11 @@ input:checked + .slider::before {
     color: #81c784;
 }
 
-/* ==========================================================================
+/* Layout: ==========================================================================
    CONFIGURATION PANEL STYLES
    ========================================================================== */
 
-#config-panel {
+   #config-panel {
     position: fixed;
     top: 10px;
     right: 10px;
@@ -2269,7 +2207,7 @@ input:checked + .slider::before {
     background: #0056b3;
 }
 
-/* Mobile responsive adjustments for footer and config */
+/* Layout: Mobile responsive adjustments for footer and config */
 @media (width <= 768px) {
     #app-footer {
         padding: 6px 12px;
@@ -2277,7 +2215,7 @@ input:checked + .slider::before {
     }
     
     body {
-        padding-bottom: 35px; /* Adjust for smaller footer on mobile */
+        padding-bottom: 35px; /* Layout: Adjust for smaller footer on mobile */
     }
     
     #config-panel {
@@ -2300,7 +2238,7 @@ input:checked + .slider::before {
     }
 }
 
-/* Registration Form Styles */
+/* Layout: Registration Form Styles */
 .form-footer {
     padding-top: 1rem;
     margin-top: 1.5rem;

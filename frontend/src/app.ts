@@ -42,16 +42,48 @@ export class ChatFlowApp {
         console.info('📡 API Endpoint:', config.API_BASE_URL);
         console.info('🔌 WebSocket Endpoint:', config.WS_BASE_URL);
         console.info('📱 App Version:', config.VERSION);
-        this.initializeApp();
+        this.initializeApp().catch(error => {
+            console.error('Failed to initialize app:', error);
+            this.showLoginForm();
+        });
     }
 
-    private initializeApp() {
+    private async initializeApp() {
         // Check if user is already logged in
         const token = apiService.getToken();
         if (token) {
             this.isLoggedIn = true;
-            this.initializeWebSocket(token);
-            this.showMainInterface();
+            
+            try {
+                // Fetch current user data to restore the user session properly
+                const userResponse = await apiService.getCurrentUser();
+                if (userResponse.success && userResponse.data) {
+                    this.currentUser = userResponse.data;
+                    console.info('✅ User session restored:', this.currentUser.displayName || this.currentUser.email);
+                } else {
+                    console.warn('Failed to fetch current user, clearing invalid token');
+                    apiService.clearToken();
+                    this.isLoggedIn = false;
+                    this.showLoginForm();
+                    return;
+                }
+                
+                // Initialize encryption system after authentication
+                try {
+                    await apiService.initializeEncryption();
+                    console.info('🔐 Encryption system ready');
+                } catch (error) {
+                    console.warn('🔐 Encryption initialization failed, continuing without encryption:', error);
+                }
+                
+                this.initializeWebSocket(token);
+                this.showMainInterface();
+            } catch (error) {
+                console.error('Failed to restore user session:', error);
+                apiService.clearToken();
+                this.isLoggedIn = false;
+                this.showLoginForm();
+            }
         } else {
             this.currentForm = 'login'; // Ensure we start with login form
             this.showLoginForm();
@@ -68,7 +100,6 @@ export class ChatFlowApp {
 
         // Login form events
         const loginBtn = document.getElementById('loginBtn') as HTMLButtonElement;
-        const emailInput = document.getElementById('email') as HTMLInputElement;
         const passwordInput = document.getElementById('password') as HTMLInputElement;
         const showRegisterLink = document.getElementById('showRegisterLink') as HTMLAnchorElement;
 

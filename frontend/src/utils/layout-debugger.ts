@@ -237,6 +237,7 @@ class LayoutDebugger {
             }
           }
         } catch (e) {
+          console.error('Error getting CSS rules for selector:', e);
           // Skip external stylesheets we can't access
         }
       }

@@ -1,4 +1,4 @@
-import { ConversationSidebar, ConversationSidebarState } from './components/ConversationSidebar.js';
+import { ConversationSidebar } from './components/ConversationSidebar.js';
 import { apiService } from './services/apiService.js';
 
 // Mock the apiService

@@ -1,5 +1,4 @@
 import { ChatFlowApp } from './app.js';
-import { ConversationSidebar } from './components/ConversationSidebar.js';
 import { apiService } from './services/apiService.js';
 import { websocketService } from './services/websocketService.js';
 
