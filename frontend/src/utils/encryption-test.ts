@@ -11,7 +11,7 @@ export class EncryptionTestUtil {
    * Test encryption roundtrip with detailed logging
    */
   static async testEncryptionRoundtrip(testData: string = 'Hello, ChatFlow!'): Promise<boolean> {
-    console.log('🧪 [TEST] Starting encryption roundtrip test...');
+    console.info('🧪 [TEST] Starting encryption roundtrip test...');
     
     try {
       if (!encryptionService.isReady()) {
@@ -19,13 +19,13 @@ export class EncryptionTestUtil {
         return false;
       }
 
-      console.log('🧪 [TEST] Testing with data:', testData);
+      console.info('🧪 [TEST] Testing with data:', testData);
 
       // Step 1: Encrypt
-      console.log('🧪 [TEST] Step 1: Encrypting...');
+      console.info('🧪 [TEST] Step 1: Encrypting...');
       const encrypted = await encryptionService.encryptMessage(testData);
       
-      console.log('🧪 [TEST] Encrypted result:', {
+      console.info('🧪 [TEST] Encrypted result:', {
         dataLength: encrypted.data.length,
         keyId: encrypted.encryption.keyId,
         algorithm: encrypted.encryption.algorithm,
@@ -35,14 +35,14 @@ export class EncryptionTestUtil {
       });
 
       // Step 2: Decrypt
-      console.log('🧪 [TEST] Step 2: Decrypting...');
+      console.info('🧪 [TEST] Step 2: Decrypting...');
       const decrypted = await encryptionService.decryptField(encrypted);
       
-      console.log('🧪 [TEST] Decrypted result:', decrypted);
+      console.info('🧪 [TEST] Decrypted result:', decrypted);
 
       // Step 3: Verify
       const success = decrypted === testData;
-      console.log('🧪 [TEST] Roundtrip test result:', success ? '✅ SUCCESS' : '❌ FAILED');
+      console.info('🧪 [TEST] Roundtrip test result:', success ? '✅ SUCCESS' : '❌ FAILED');
       
       if (!success) {
         console.error('🧪 [TEST ERROR] Data mismatch:', {
@@ -63,8 +63,8 @@ export class EncryptionTestUtil {
    * Test decryption of a message from the server
    */
   static async testServerDecryption(encryptedField: EncryptedField): Promise<string | null> {
-    console.log('🧪 [TEST] Testing server message decryption...');
-    console.log('🧪 [TEST] Server encrypted field:', encryptedField);
+    console.info('🧪 [TEST] Testing server message decryption...');
+    console.info('🧪 [TEST] Server encrypted field:', encryptedField);
     
     try {
       if (!encryptionService.isReady()) {
@@ -73,7 +73,7 @@ export class EncryptionTestUtil {
       }
 
       const decrypted = await encryptionService.decryptField(encryptedField);
-      console.log('🧪 [TEST] Successfully decrypted server message:', decrypted);
+      console.info('🧪 [TEST] Successfully decrypted server message:', decrypted);
       return decrypted;
 
     } catch (error) {
@@ -86,22 +86,22 @@ export class EncryptionTestUtil {
    * Show current encryption configuration
    */
   static showConfig(): void {
-    console.log('🧪 [TEST] Current encryption configuration:');
+    console.info('🧪 [TEST] Current encryption configuration:');
     
     if (!encryptionService.isReady()) {
-      console.log('❌ Encryption service not ready');
+      console.info('❌ Encryption service not ready');
       return;
     }
 
     const keyContext = encryptionService.getKeyContext();
     if (keyContext) {
-      console.log('✅ Key Context:', {
+      console.info('✅ Key Context:', {
         userEmail: keyContext.userEmail,
         keyIds: keyContext.keyIds,
         salt: keyContext.salt
       });
     } else {
-      console.log('❌ No key context available');
+      console.info('❌ No key context available');
     }
   }
 
@@ -109,7 +109,7 @@ export class EncryptionTestUtil {
    * Manual test for specific user and keyId combination
    */
   static async testKeyDerivation(keyId: string, userEmail: string, testData: string = 'test'): Promise<void> {
-    console.log('🧪 [TEST] Manual key derivation test:', { keyId, userEmail, testData });
+    console.info('🧪 [TEST] Manual key derivation test:', { keyId, userEmail, testData });
     
     try {
       // Create a test key context
@@ -129,13 +129,13 @@ export class EncryptionTestUtil {
 
       // Test encryption/decryption
       const encrypted = await testService.encryptMessage(testData);
-      console.log('🧪 [TEST] Manual encryption result:', encrypted);
+      console.info('🧪 [TEST] Manual encryption result:', encrypted);
 
       const decrypted = await testService.decryptField(encrypted);
-      console.log('🧪 [TEST] Manual decryption result:', decrypted);
+      console.info('🧪 [TEST] Manual decryption result:', decrypted);
 
       const success = decrypted === testData;
-      console.log('🧪 [TEST] Manual test result:', success ? '✅ SUCCESS' : '❌ FAILED');
+      console.info('🧪 [TEST] Manual test result:', success ? '✅ SUCCESS' : '❌ FAILED');
 
     } catch (error) {
       console.error('🧪 [TEST ERROR] Manual test failed:', error);
@@ -146,7 +146,7 @@ export class EncryptionTestUtil {
    * Compare frontend encryption with expected backend format
    */
   static async compareWithBackend(testData: string = 'test message'): Promise<void> {
-    console.log('🧪 [TEST] Comparing frontend encryption with backend format...');
+    console.info('🧪 [TEST] Comparing frontend encryption with backend format...');
     
     try {
       if (!encryptionService.isReady()) {
@@ -160,28 +160,28 @@ export class EncryptionTestUtil {
         return;
       }
 
-      console.log('🧪 [TEST] Expected backend key derivation:');
-      console.log(`   keyMaterial = "${keyContext.keyIds.message}:${keyContext.userEmail}"`);
-      console.log(`   salt = "${keyContext.salt}"`);
-      console.log(`   algorithm = scrypt`);
+      console.info('🧪 [TEST] Expected backend key derivation:');
+      console.info(`   keyMaterial = "${keyContext.keyIds.message}:${keyContext.userEmail}"`);
+      console.info(`   salt = "${keyContext.salt}"`);
+      console.info(`   algorithm = scrypt`);
 
-      console.log('🧪 [TEST] Frontend implementation:');
-      console.log(`   keyMaterial = "${keyContext.keyIds.message}:${keyContext.userEmail}"`);
-      console.log(`   salt = "${keyContext.salt}"`);
-      console.log(`   algorithm = PBKDF2 (approximation)`);
+      console.info('🧪 [TEST] Frontend implementation:');
+      console.info(`   keyMaterial = "${keyContext.keyIds.message}:${keyContext.userEmail}"`);
+      console.info(`   salt = "${keyContext.salt}"`);
+      console.info(`   algorithm = PBKDF2 (approximation)`);
 
       // Test our encryption
       const encrypted = await encryptionService.encryptMessage(testData);
       
-      console.log('🧪 [TEST] Frontend encrypted format:');
-      console.log(`   data: ${encrypted.data}`);
-      console.log(`   iv: ${encrypted.encryption.iv}`);
-      console.log(`   tag: ${encrypted.encryption.tag}`);
-      console.log(`   keyId: ${encrypted.encryption.keyId}`);
+      console.info('🧪 [TEST] Frontend encrypted format:');
+      console.info(`   data: ${encrypted.data}`);
+      console.info(`   iv: ${encrypted.encryption.iv}`);
+      console.info(`   tag: ${encrypted.encryption.tag}`);
+      console.info(`   keyId: ${encrypted.encryption.keyId}`);
 
       // Show what backend expects for tag verification
       const expectedTagData = encrypted.data + encrypted.encryption.keyId;
-      console.log('🧪 [TEST] Tag verification data:', expectedTagData.substring(0, 100) + '...');
+      console.info('🧪 [TEST] Tag verification data:', expectedTagData.substring(0, 100) + '...');
 
     } catch (error) {
       console.error('🧪 [TEST ERROR] Comparison failed:', error);
@@ -192,7 +192,7 @@ export class EncryptionTestUtil {
    * Test the exact message that failed
    */
   static async testFailedMessage(): Promise<void> {
-    console.log('🧪 [TEST] Testing the failed message from your example...');
+    console.info('🧪 [TEST] Testing the failed message from your example...');
     
     const failedMessage: EncryptedField = {
       data: "o4D47GdlP2njJQ==",
@@ -206,14 +206,14 @@ export class EncryptionTestUtil {
       }
     };
 
-    console.log('🧪 [TEST] Failed message details:', failedMessage);
+    console.info('🧪 [TEST] Failed message details:', failedMessage);
 
     try {
       const result = await this.testServerDecryption(failedMessage);
       if (result) {
-        console.log('🧪 [TEST] ✅ Successfully decrypted failed message:', result);
+        console.info('🧪 [TEST] ✅ Successfully decrypted failed message:', result);
       } else {
-        console.log('🧪 [TEST] ❌ Failed to decrypt message');
+        console.info('🧪 [TEST] ❌ Failed to decrypt message');
       }
     } catch (error) {
       console.error('🧪 [TEST ERROR] Exception during failed message test:', error);
@@ -227,12 +227,12 @@ export class EncryptionTestUtil {
 // Auto-run basic test when loaded
 setTimeout(() => {
   if (encryptionService.isReady()) {
-    console.log('🧪 [AUTO-TEST] Running automatic encryption test...');
+    console.info('🧪 [AUTO-TEST] Running automatic encryption test...');
     EncryptionTestUtil.testEncryptionRoundtrip().then(success => {
-      console.log('🧪 [AUTO-TEST] Automatic test result:', success ? '✅ PASS' : '❌ FAIL');
+      console.info('🧪 [AUTO-TEST] Automatic test result:', success ? '✅ PASS' : '❌ FAIL');
     });
   } else {
-    console.log('🧪 [AUTO-TEST] Encryption service not ready, skipping auto-test');
+    console.info('🧪 [AUTO-TEST] Encryption service not ready, skipping auto-test');
   }
 }, 2000);
 

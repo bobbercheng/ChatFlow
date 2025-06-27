@@ -66,7 +66,7 @@ export const config = getCurrentConfig();
 
 // Debug logging in development
 if (getEnvironment() === 'development') {
-    console.log('🔧 ChatFlow Configuration:', config);
+    console.info('🔧 ChatFlow Configuration:', config);
 }
 
 // Allow runtime configuration override

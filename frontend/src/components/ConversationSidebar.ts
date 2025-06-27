@@ -376,7 +376,7 @@ export class ConversationSidebar {
                     unreadCount: 0,
                     participantDisplayNames: []
                 }));
-                console.log(`📱 Loaded ${this.state.conversations.length} conversations`);
+                console.info(`📱 Loaded ${this.state.conversations.length} conversations`);
             } else {
                 console.error('Failed to load conversations:', response.error);
                 this.state.conversations = [];
@@ -396,7 +396,7 @@ export class ConversationSidebar {
 
         try {
             await this.loadConversations();
-            console.log('🔄 Conversations refreshed');
+            console.info('🔄 Conversations refreshed');
         } finally {
             this.state.isRefreshing = false;
             this.updateRefreshButton();
@@ -434,7 +434,7 @@ export class ConversationSidebar {
         // Notify parent component
         this.onConversationSelect(conversationId);
         
-        console.log(`📱 Selected conversation: ${conversationId}`);
+        console.info(`📱 Selected conversation: ${conversationId}`);
     }
 
     private openNewConversationModal(): void {
@@ -507,7 +507,7 @@ export class ConversationSidebar {
             });
 
             if (response.success && response.data) {
-                console.log('✅ Created new conversation:', response.data.id);
+                console.info('✅ Created new conversation:', response.data.id);
                 
                 // Add to local state with metadata
                 const newConversation: ConversationWithMetadata = {

@@ -572,11 +572,11 @@ describe('ConversationSidebar', () => {
                     expect(alertSpy).toHaveBeenCalledWith('Failed to create conversation. Please try again.');
                 } else {
                     // If modal elements aren't found, skip test gracefully
-                    console.log('Modal elements not found, skipping error test');
+                    console.info('Modal elements not found, skipping error test');
                 }
             } else {
                 // If button isn't found, skip test gracefully  
-                console.log('New conversation button not found, skipping error test');
+                console.info('New conversation button not found, skipping error test');
             }
             
             consoleSpy.mockRestore();

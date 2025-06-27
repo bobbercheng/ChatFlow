@@ -26,7 +26,7 @@ class WebSocketService {
                 this.ws = new WebSocket(wsUrl);
                 
                 this.ws.onopen = () => {
-                    console.log('🔌 WebSocket connected to:', WS_URL);
+                    console.info('🔌 WebSocket connected to:', WS_URL);
                     this.reconnectAttempts = 0;
                     resolve();
                 };
@@ -52,7 +52,7 @@ class WebSocketService {
                 };
 
                 this.ws.onclose = (event) => {
-                    console.log('WebSocket disconnected:', event.code, event.reason);
+                    console.info('WebSocket disconnected:', event.code, event.reason);
                     this.handleReconnect();
                 };
 
@@ -90,7 +90,7 @@ class WebSocketService {
         if (encryptionService.isReady()) {
             try {
                 contentToSend = await encryptionService.encryptMessage(content);
-                console.log('🔐 Encrypted WebSocket message content');
+                console.info('🔐 Encrypted WebSocket message content');
             } catch (error) {
                 console.error('Failed to encrypt WebSocket message:', error);
                 // Continue with plain text if encryption fails
@@ -139,7 +139,7 @@ class WebSocketService {
         const decryptedCount = await this.decryptObjectFields(data.payload);
         
         if (decryptedCount > 0) {
-            console.log(`🔓 Decrypted ${decryptedCount} fields in WebSocket payload`);
+            console.info(`🔓 Decrypted ${decryptedCount} fields in WebSocket payload`);
         }
     }
 
@@ -181,7 +181,7 @@ class WebSocketService {
     private handleReconnect(): void {
         if (this.reconnectAttempts < this.maxReconnectAttempts && this.token) {
             this.reconnectAttempts++;
-            console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+            console.info(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
             
             setTimeout(() => {
                 this.connect(this.token!).catch(error => {

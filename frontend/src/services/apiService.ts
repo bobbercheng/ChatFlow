@@ -58,12 +58,12 @@ class ApiService {
      */
     async initializeEncryption(): Promise<void> {
         if (this.isEncryptionInitialized) {
-            console.log('🔐 Encryption already initialized');
+            console.info('🔐 Encryption already initialized');
             return;
         }
 
         try {
-            console.log('🔐 Initializing encryption system...');
+            console.info('🔐 Initializing encryption system...');
             
             // Get current keyIds and user context
             const [keyResponse, contextResponse] = await Promise.all([
@@ -108,7 +108,7 @@ class ApiService {
             }
 
             this.isEncryptionInitialized = true;
-            console.log('🔐 Encryption system initialized successfully');
+            console.info('🔐 Encryption system initialized successfully');
 
         } catch (error) {
             console.error('🔐 Failed to initialize encryption:', error);
@@ -170,7 +170,7 @@ class ApiService {
      * Refresh encryption keys (for key rotation)
      */
     async refreshEncryptionKeys(): Promise<void> {
-        console.log('🔄 Refreshing encryption keys...');
+        console.info('🔄 Refreshing encryption keys...');
         
         try {
             const [keyResponse, contextResponse] = await Promise.all([
@@ -201,7 +201,7 @@ class ApiService {
             };
 
             await encryptionService.refreshKeys(keyContext);
-            console.log('🔄 Encryption keys refreshed successfully');
+            console.info('🔄 Encryption keys refreshed successfully');
 
         } catch (error) {
             console.error('🔄 Failed to refresh encryption keys:', error);
@@ -263,7 +263,7 @@ class ApiService {
             try {
                 const decryptedCount = await this.decryptResponseFields(response.data);
                 if (decryptedCount > 0) {
-                    console.log(`🔓 Decrypted ${decryptedCount} fields in messages response`);
+                    console.info(`🔓 Decrypted ${decryptedCount} fields in messages response`);
                 }
             } catch (error) {
                 console.error('Failed to decrypt messages:', error);
@@ -281,7 +281,7 @@ class ApiService {
         if (this.isEncryptionReady() && typeof data.content === 'string') {
             try {
                 contentToSend = await encryptionService.encryptMessage(data.content);
-                console.log('🔐 Encrypted message content');
+                console.info('🔐 Encrypted message content');
             } catch (error) {
                 console.error('Failed to encrypt message content:', error);
                 // Continue with plain text if encryption fails
@@ -301,7 +301,7 @@ class ApiService {
             try {
                 const decryptedCount = await this.decryptResponseFields(response.data);
                 if (decryptedCount > 0) {
-                    console.log(`🔓 Decrypted ${decryptedCount} fields in message response`);
+                    console.info(`🔓 Decrypted ${decryptedCount} fields in message response`);
                 }
             } catch (error) {
                 console.error('Failed to decrypt response message content:', error);
@@ -318,7 +318,7 @@ class ApiService {
         if (this.isEncryptionReady() && query.trim()) {
             try {
                 queryToSend = await encryptionService.encryptSearchQuery(query);
-                console.log('🔐 Encrypted search query');
+                console.info('🔐 Encrypted search query');
             } catch (error) {
                 console.error('Failed to encrypt search query:', error);
                 // Continue with plain text if encryption fails
@@ -338,7 +338,7 @@ class ApiService {
             try {
                 const decryptedCount = await this.decryptResponseFields(response.data);
                 if (decryptedCount > 0) {
-                    console.log(`🔓 Decrypted ${decryptedCount} fields in search conversation results`);
+                    console.info(`🔓 Decrypted ${decryptedCount} fields in search conversation results`);
                 }
             } catch (error) {
                 console.error('Failed to decrypt search results:', error);
@@ -359,7 +359,7 @@ class ApiService {
             if (this.isEncryptionReady()) {
                 try {
                     requestBody.q = await encryptionService.encryptSuggestion(query);
-                    console.log('🔐 Encrypted suggestion query');
+                    console.info('🔐 Encrypted suggestion query');
                 } catch (error) {
                     console.error('Failed to encrypt suggestion query:', error);
                     requestBody.q = query; // Fallback to plain text
@@ -379,7 +379,7 @@ class ApiService {
             try {
                 const decryptedCount = await this.decryptResponseFields(response.data);
                 if (decryptedCount > 0) {
-                    console.log(`🔓 Decrypted ${decryptedCount} fields in search suggestions response`);
+                    console.info(`🔓 Decrypted ${decryptedCount} fields in search suggestions response`);
                 }
             } catch (error) {
                 console.error('Failed to decrypt search suggestions:', error);
@@ -399,7 +399,7 @@ class ApiService {
             try {
                 queryToSend = await encryptionService.encryptSuggestion(query);
                 suggestionToSend = await encryptionService.encryptSuggestion(suggestionText);
-                console.log('🔐 Encrypted suggestion click tracking data');
+                console.info('🔐 Encrypted suggestion click tracking data');
             } catch (error) {
                 console.error('Failed to encrypt suggestion tracking data:', error);
                 // Continue with plain text if encryption fails
@@ -424,7 +424,7 @@ class ApiService {
             try {
                 const decryptedCount = await this.decryptResponseFields(response.data);
                 if (decryptedCount > 0) {
-                    console.log(`🔓 Decrypted ${decryptedCount} fields in conversation messages response`);
+                    console.info(`🔓 Decrypted ${decryptedCount} fields in conversation messages response`);
                 }
             } catch (error) {
                 console.error('Failed to decrypt conversation messages:', error);

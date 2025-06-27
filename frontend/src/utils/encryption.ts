@@ -46,7 +46,7 @@ export class EncryptionService {
   private isInitialized = false;
 
   constructor() {
-    console.log('🔐 Encryption Service initializing...');
+    console.info('🔐 Encryption Service initializing...');
   }
 
   /**
@@ -60,7 +60,7 @@ export class EncryptionService {
       await this.deriveKeys();
       
       this.isInitialized = true;
-      console.log('🔐 Encryption Service initialized successfully');
+      console.info('🔐 Encryption Service initialized successfully');
       
       // Verify encryption is working
       await this.verifyEncryption();
@@ -95,7 +95,7 @@ export class EncryptionService {
         const derivedKey = await this.deriveKey(keyId, userEmail, saltBuffer);
         const cacheKey = `${purpose}:${userEmail}`;
         this.keyCache.set(cacheKey, derivedKey);
-        console.log(`🔑 Derived key for purpose: ${purpose}`);
+        console.info(`🔑 Derived key for purpose: ${purpose}`);
       } catch (error) {
         console.error(`Failed to derive key for purpose ${purpose}:`, error);
         throw error;
@@ -110,7 +110,7 @@ export class EncryptionService {
   private async deriveKey(keyId: string, userEmail: string, salt: Uint8Array): Promise<CryptoKey> {
     // Create key material to match backend format: keyId:userEmail (colon separator)
     const keyMaterial = `${keyId}:${userEmail}`;
-    console.log('🔑 [ENCRYPTION DEBUG] Key derivation:', {
+    console.info('🔑 [ENCRYPTION DEBUG] Key derivation:', {
       keyId,
       userEmail,
       keyMaterial,
@@ -130,7 +130,7 @@ export class EncryptionService {
       32     // dkLen: desired key length (256 bits)
     );
 
-    console.log('🔑 [ENCRYPTION DEBUG] Scrypt key derived, length:', scryptKeyBuffer.length);
+    console.info('🔑 [ENCRYPTION DEBUG] Scrypt key derived, length:', scryptKeyBuffer.length);
 
     // Import the raw scrypt output as an AES-CBC key
     const derivedKey = await crypto.subtle.importKey(
@@ -144,7 +144,7 @@ export class EncryptionService {
       ['encrypt', 'decrypt']
     );
 
-    console.log('🔑 [ENCRYPTION DEBUG] Key imported successfully');
+    console.info('🔑 [ENCRYPTION DEBUG] Key imported successfully');
     return derivedKey;
   }
 
@@ -178,7 +178,7 @@ export class EncryptionService {
       const key = this.getKey(purpose);
       const keyId = this.keyContext!.keyIds[purpose];
       
-      console.log('🔐 [ENCRYPTION DEBUG] Starting encryption:', {
+      console.info('🔐 [ENCRYPTION DEBUG] Starting encryption:', {
         purpose,
         keyId,
         dataLength: data.length,
@@ -191,7 +191,7 @@ export class EncryptionService {
       const nonce = Array.from(nonceBytes).reduce((str, byte) => 
         str + byte.toString(16).padStart(2, '0'), '');
 
-      console.log('🔐 [ENCRYPTION DEBUG] Generated IV and nonce:', {
+      console.info('🔐 [ENCRYPTION DEBUG] Generated IV and nonce:', {
         ivLength: iv.length,
         nonceLength: nonce.length
       });
@@ -213,7 +213,7 @@ export class EncryptionService {
       const encryptedBase64 = btoa(String.fromCharCode.apply(null, Array.from(encryptedData)));
       const ivBase64 = btoa(String.fromCharCode.apply(null, Array.from(iv)));
       
-      console.log('🔐 [ENCRYPTION DEBUG] Encrypted data:', {
+      console.info('🔐 [ENCRYPTION DEBUG] Encrypted data:', {
         originalLength: data.length,
         encryptedLength: encryptedData.length,
         encryptedBase64Length: encryptedBase64.length
@@ -225,7 +225,7 @@ export class EncryptionService {
       const tagArray = new Uint8Array(tagBuffer);
       const tagBase64 = btoa(String.fromCharCode.apply(null, Array.from(tagArray))).slice(0, 22);
 
-      console.log('🔐 [ENCRYPTION DEBUG] Tag creation:', {
+      console.info('🔐 [ENCRYPTION DEBUG] Tag creation:', {
         tagData: tagData.substring(0, 50) + '...',
         tagBase64,
         tagLength: tagBase64.length
@@ -243,7 +243,7 @@ export class EncryptionService {
         }
       };
 
-      console.log('🔐 [ENCRYPTION DEBUG] Encryption complete:', {
+      console.info('🔐 [ENCRYPTION DEBUG] Encryption complete:', {
         dataLength: result.data.length,
         ivLength: result.encryption.iv.length,
         tagLength: result.encryption.tag.length
@@ -267,7 +267,7 @@ export class EncryptionService {
     try {
       const { data, encryption } = encryptedField;
 
-      console.log('🔓 [DECRYPTION DEBUG] Starting decryption:', {
+      console.info('🔓 [DECRYPTION DEBUG] Starting decryption:', {
         keyId: encryption.keyId,
         dataLength: data.length,
         ivLength: encryption.iv.length,
@@ -282,13 +282,13 @@ export class EncryptionService {
         throw new Error('Encrypted data too old');
       }
 
-      console.log('🔓 [DECRYPTION DEBUG] Timestamp valid, age:', age, 'ms');
+      console.info('🔓 [DECRYPTION DEBUG] Timestamp valid, age:', age, 'ms');
 
       // Find the purpose from keyId
       const purpose = this.getPurposeFromKeyId(encryption.keyId);
       const key = this.getKey(purpose);
 
-      console.log('🔓 [DECRYPTION DEBUG] Retrieved key for purpose:', purpose);
+      console.info('🔓 [DECRYPTION DEBUG] Retrieved key for purpose:', purpose);
 
       // Verify tag like backend does: hash(encrypted + keyId)
       const tagData = data + encryption.keyId;
@@ -296,7 +296,7 @@ export class EncryptionService {
       const expectedTagArray = new Uint8Array(expectedTagBuffer);
       const expectedTag = btoa(String.fromCharCode.apply(null, Array.from(expectedTagArray))).slice(0, 22);
       
-      console.log('🔓 [DECRYPTION DEBUG] Tag verification:', {
+      console.info('🔓 [DECRYPTION DEBUG] Tag verification:', {
         expectedTag,
         actualTag: encryption.tag,
         tagDataPreview: tagData.substring(0, 50) + '...'
@@ -311,13 +311,13 @@ export class EncryptionService {
         throw new Error('Authentication tag verification failed');
       }
 
-      console.log('🔓 [DECRYPTION DEBUG] Tag verification passed');
+      console.info('🔓 [DECRYPTION DEBUG] Tag verification passed');
 
       // Convert from base64
       const encryptedData = Uint8Array.from(Array.from(atob(data)).map(c => c.charCodeAt(0)));
       const iv = Uint8Array.from(Array.from(atob(encryption.iv)).map(c => c.charCodeAt(0)));
 
-      console.log('🔓 [DECRYPTION DEBUG] Decoded data:', {
+      console.info('🔓 [DECRYPTION DEBUG] Decoded data:', {
         encryptedDataLength: encryptedData.length,
         ivLength: iv.length
       });
@@ -333,7 +333,7 @@ export class EncryptionService {
       );
 
       const result = new TextDecoder().decode(decryptedBuffer);
-      console.log('🔓 [DECRYPTION DEBUG] Decryption successful:', {
+      console.info('🔓 [DECRYPTION DEBUG] Decryption successful:', {
         resultLength: result.length,
         preview: result.substring(0, 50)
       });
@@ -408,7 +408,7 @@ export class EncryptionService {
         throw new Error('Encryption verification failed: data mismatch');
       }
       
-      console.log('🔐 Encryption verification successful');
+      console.info('🔐 Encryption verification successful');
     } catch (error) {
       console.error('🔐 Encryption verification failed:', error);
       throw error;
@@ -419,7 +419,7 @@ export class EncryptionService {
    * Refresh keys when key rotation occurs
    */
   async refreshKeys(newKeyContext: KeyContext): Promise<void> {
-    console.log('🔄 Refreshing encryption keys...');
+    console.info('🔄 Refreshing encryption keys...');
     
     // Clear old keys
     this.keyCache.clear();
@@ -427,7 +427,7 @@ export class EncryptionService {
     // Initialize with new context
     await this.initialize(newKeyContext);
     
-    console.log('🔄 Key refresh completed');
+    console.info('🔄 Key refresh completed');
   }
 
   /**
@@ -437,7 +437,7 @@ export class EncryptionService {
     this.keyCache.clear();
     this.keyContext = null;
     this.isInitialized = false;
-    console.log('🔐 Encryption keys cleared');
+    console.info('🔐 Encryption keys cleared');
   }
 
   /**

@@ -186,8 +186,8 @@ describe('Frontend Types - OpenAPI Schema Synchronization', () => {
     
     // Generate expected interface
     const expectedInterface = generateTypeScriptInterface('Message', messageSchema, schemas);
-    console.log('Expected Message interface from OpenAPI:');
-    console.log(expectedInterface);
+    console.info('Expected Message interface from OpenAPI:');
+    console.info(expectedInterface);
     
     // The frontend Message interface should NOT have senderDisplayName 
     // since it's not in the OpenAPI schema
@@ -199,8 +199,8 @@ describe('Frontend Types - OpenAPI Schema Synchronization', () => {
     expect(userSchema).toBeDefined();
     
     const expectedInterface = generateTypeScriptInterface('User', userSchema, schemas);
-    console.log('Expected User interface from OpenAPI:');
-    console.log(expectedInterface);
+    console.info('Expected User interface from OpenAPI:');
+    console.info(expectedInterface);
     
     // Verify required properties
     expect(userSchema.properties?.email).toBeDefined();
@@ -212,13 +212,13 @@ describe('Frontend Types - OpenAPI Schema Synchronization', () => {
   });
 
   test('should generate complete type definitions from OpenAPI', () => {
-    console.log('\n=== COMPLETE OPENAPI-DERIVED TYPES ===\n');
+    console.info('\n=== COMPLETE OPENAPI-DERIVED TYPES ===\n');
     
     // Generate all interface definitions
     Object.entries(schemas).forEach(([name, schema]) => {
       const interfaceDefinition = generateTypeScriptInterface(name, schema, schemas);
-      console.log(interfaceDefinition);
-      console.log('');
+      console.info(interfaceDefinition);
+      console.info('');
     });
   });
 
@@ -267,32 +267,32 @@ describe('Frontend Types - OpenAPI Schema Synchronization', () => {
       'IndexMessageRequest'
     ];
     
-    console.log('\n=== VALIDATING GENERATED TYPES ===');
+    console.info('\n=== VALIDATING GENERATED TYPES ===');
     
     const missingTypes: string[] = [];
     requiredTypes.forEach(typeName => {
       const typeRegex = new RegExp(`export interface ${typeName}`, 'i');
       if (typeRegex.test(generatedContent)) {
-        console.log(`✅ ${typeName} - found in generated types`);
+        console.info(`✅ ${typeName} - found in generated types`);
       } else {
-        console.log(`❌ ${typeName} - missing from generated types`);
+        console.info(`❌ ${typeName} - missing from generated types`);
         missingTypes.push(typeName);
       }
     });
     
     // Check that ApiResponse is generic
     if (/export interface ApiResponse<T = any>/.test(generatedContent)) {
-      console.log('✅ ApiResponse - correctly generated as generic');
+      console.info('✅ ApiResponse - correctly generated as generic');
     } else {
-      console.log('❌ ApiResponse - not correctly generated as generic');
+      console.info('❌ ApiResponse - not correctly generated as generic');
       missingTypes.push('ApiResponse<T>');
     }
     
     // Check that PaginationResult is generic  
     if (/export interface PaginationResult<T = any>/.test(generatedContent)) {
-      console.log('✅ PaginationResult - correctly generated as generic');
+      console.info('✅ PaginationResult - correctly generated as generic');
     } else {
-      console.log('❌ PaginationResult - not correctly generated as generic');
+      console.info('❌ PaginationResult - not correctly generated as generic');
       missingTypes.push('PaginationResult<T>');
     }
     
@@ -300,16 +300,16 @@ describe('Frontend Types - OpenAPI Schema Synchronization', () => {
     const hasGeneratedComment = /Generated from OpenAPI schema/.test(generatedContent);
     const hasExportStatements = /export interface/.test(generatedContent);
     
-    console.log(`\n=== VALIDATION RESULTS ===`);
-    console.log(`Generated file exists: ✅`);
-    console.log(`Has generation comment: ${hasGeneratedComment ? '✅' : '❌'}`);
-    console.log(`Has export statements: ${hasExportStatements ? '✅' : '❌'}`);
-    console.log(`Required types found: ${requiredTypes.length - missingTypes.length}/${requiredTypes.length}`);
+    console.info(`\n=== VALIDATION RESULTS ===`);
+    console.info(`Generated file exists: ✅`);
+    console.info(`Has generation comment: ${hasGeneratedComment ? '✅' : '❌'}`);
+    console.info(`Has export statements: ${hasExportStatements ? '✅' : '❌'}`);
+    console.info(`Required types found: ${requiredTypes.length - missingTypes.length}/${requiredTypes.length}`);
     
     if (missingTypes.length > 0) {
       throw new Error(`🚨 MISSING TYPES: ${missingTypes.join(', ')}`);
     }
     
-    console.log(`\n🎉 SUCCESS: All ${requiredTypes.length} OpenAPI types are correctly generated and available!`);
+    console.info(`\n🎉 SUCCESS: All ${requiredTypes.length} OpenAPI types are correctly generated and available!`);
   });
 }); 

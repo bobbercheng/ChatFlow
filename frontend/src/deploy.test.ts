@@ -82,7 +82,7 @@ window.CHATFLOW_CONFIG = {
     BUILD_TIMESTAMP: '${buildTimestamp}'
 };
 
-console.log('🔧 ChatFlow Dynamic Config Loaded:', window.CHATFLOW_CONFIG);
+console.info('🔧 ChatFlow Dynamic Config Loaded:', window.CHATFLOW_CONFIG);
 `;
 
         // Verify the config structure

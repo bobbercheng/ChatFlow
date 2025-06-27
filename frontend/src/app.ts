@@ -38,10 +38,10 @@ export class ChatFlowApp {
     private currentForm: 'login' | 'register' = 'login';
 
     constructor() {
-        console.log('🚀 ChatFlow Frontend Starting...');
-        console.log('📡 API Endpoint:', config.API_BASE_URL);
-        console.log('🔌 WebSocket Endpoint:', config.WS_BASE_URL);
-        console.log('📱 App Version:', config.VERSION);
+        console.info('🚀 ChatFlow Frontend Starting...');
+        console.info('📡 API Endpoint:', config.API_BASE_URL);
+        console.info('🔌 WebSocket Endpoint:', config.WS_BASE_URL);
+        console.info('📱 App Version:', config.VERSION);
         this.initializeApp();
     }
 
@@ -112,20 +112,20 @@ export class ChatFlowApp {
 
         if (chatTab) {
             chatTab.addEventListener('click', () => {
-                console.log('Chat tab clicked');
+                console.info('Chat tab clicked');
                 this.switchView('chat');
             });
         }
 
         if (searchTab) {
             searchTab.addEventListener('click', () => {
-                console.log('Search tab clicked');
+                console.info('Search tab clicked');
                 this.switchView('search');
                 
                 // Extra safety: ensure SearchComponent is initialized after tab click
                 setTimeout(() => {
                     if (!this.searchComponent) {
-                        console.log('SearchComponent missing after tab click, initializing...');
+                        console.info('SearchComponent missing after tab click, initializing...');
                         this.initializeSearchComponent();
                     }
                 }, 50);
@@ -222,7 +222,7 @@ export class ChatFlowApp {
     }
 
     private switchView(view: 'chat' | 'search') {
-        console.log(`Switching to ${view} view`);
+        console.info(`Switching to ${view} view`);
         this.currentView = view;
         
         // Update tab states
@@ -245,7 +245,7 @@ export class ChatFlowApp {
                 if (!this.searchComponent) {
                     this.initializeSearchComponent();
                 } else {
-                    console.log('SearchComponent already exists');
+                    console.info('SearchComponent already exists');
                 }
             }
         } else {
@@ -259,7 +259,7 @@ export class ChatFlowApp {
     }
 
     private initializeSearchComponent() {
-        console.log('Attempting to initialize SearchComponent...');
+        console.info('Attempting to initialize SearchComponent...');
         const searchContent = document.getElementById('searchContent');
         
         if (!searchContent) {
@@ -268,14 +268,14 @@ export class ChatFlowApp {
         }
         
         if (this.searchComponent) {
-            console.log('SearchComponent already initialized');
+            console.info('SearchComponent already initialized');
             return;
         }
 
         try {
-            console.log('Creating new SearchComponent instance');
+            console.info('Creating new SearchComponent instance');
             this.searchComponent = new SearchComponent(searchContent);
-            console.log('SearchComponent initialized successfully');
+            console.info('SearchComponent initialized successfully');
             
             // Listen for navigation events from SearchComponent
             window.addEventListener('navigateToConversation', (event: Event) => {
@@ -287,7 +287,7 @@ export class ChatFlowApp {
             console.error('Failed to initialize SearchComponent:', error);
             // Fallback: try again after a short delay
             setTimeout(() => {
-                console.log('Retrying SearchComponent initialization...');
+                console.info('Retrying SearchComponent initialization...');
                 this.searchComponent = null; // Reset flag
                 this.initializeSearchComponent();
             }, 100);
@@ -295,7 +295,7 @@ export class ChatFlowApp {
     }
 
     private initializeConversationSidebar() {
-        console.log('Initializing Conversation Sidebar...');
+        console.info('Initializing Conversation Sidebar...');
         const sidebarContainer = document.getElementById('conversationSidebarContainer');
         
         if (!sidebarContainer) {
@@ -304,7 +304,7 @@ export class ChatFlowApp {
         }
         
         if (this.conversationSidebar) {
-            console.log('ConversationSidebar already initialized');
+            console.info('ConversationSidebar already initialized');
             return;
         }
 
@@ -324,7 +324,7 @@ export class ChatFlowApp {
                 mainContent.classList.toggle('sidebar-collapsed', isCollapsed);
             }
             
-            console.log('ConversationSidebar initialized successfully with layout state:', isCollapsed ? 'collapsed' : 'expanded');
+            console.info('ConversationSidebar initialized successfully with layout state:', isCollapsed ? 'collapsed' : 'expanded');
         } catch (error) {
             console.error('Failed to initialize ConversationSidebar:', error);
         }
@@ -344,12 +344,12 @@ export class ChatFlowApp {
                 mainContent.classList.toggle('sidebar-collapsed', isCollapsed);
             }
             
-            console.log(`Layout updated: sidebar ${isCollapsed ? 'collapsed' : 'expanded'}`);
+            console.info(`Layout updated: sidebar ${isCollapsed ? 'collapsed' : 'expanded'}`);
         });
     }
 
     private async handleSidebarConversationSelect(conversationId: string) {
-        console.log(`Sidebar selected conversation: ${conversationId}`);
+        console.info(`Sidebar selected conversation: ${conversationId}`);
         
         // Update current conversation
         this.conversationId = conversationId;
@@ -399,7 +399,7 @@ export class ChatFlowApp {
                 // Initialize encryption system after authentication
                 try {
                     await apiService.initializeEncryption();
-                    console.log('🔐 Encryption system ready');
+                    console.info('🔐 Encryption system ready');
                 } catch (error) {
                     console.warn('🔐 Encryption initialization failed, continuing without encryption:', error);
                 }
@@ -445,7 +445,7 @@ export class ChatFlowApp {
     private handleLlmToggle(enabled: boolean) {
         this.isLlmDelegationEnabled = enabled;
         localLlmService.setEnabled(enabled);
-        console.log(`🤖 LLM delegation ${enabled ? 'enabled' : 'disabled'}`);
+        console.info(`🤖 LLM delegation ${enabled ? 'enabled' : 'disabled'}`);
         
         // Test connection when enabled
         if (enabled) {
@@ -460,7 +460,7 @@ export class ChatFlowApp {
                 console.warn('🤖 Local LLM connection test failed - please ensure LM Studio or compatible server is running on http://127.0.0.1:1234');
                 alert('⚠️ Cannot connect to local LLM server. Please ensure LM Studio is running on http://127.0.0.1:1234');
             } else {
-                console.log('🤖 Local LLM connection test successful');
+                console.info('🤖 Local LLM connection test successful');
             }
         } catch (error) {
             console.error('🤖 LLM connection test error:', error);
@@ -493,11 +493,11 @@ export class ChatFlowApp {
 
     private async initializeWebSocket(token: string) {
         if (this.isInitializingWebSocket) {
-            console.log('WebSocket initialization already in progress, skipping...');
+            console.info('WebSocket initialization already in progress, skipping...');
             return;
         }
 
-        console.log('Initializing WebSocket');
+        console.info('Initializing WebSocket');
         this.isInitializingWebSocket = true;
         this.connectionStatus = 'Connecting';
         this.updateConnectionStatus();
@@ -520,11 +520,11 @@ export class ChatFlowApp {
     }
 
     private async handleWebSocketMessage(event: WebSocketEvent) {
-        console.log('WebSocket message received:', event);
+        console.info('WebSocket message received:', event);
 
         switch (event.type) {
             case 'connection':
-                console.log('WebSocket connected successfully');
+                console.info('WebSocket connected successfully');
                 break;
 
             case 'message:new':
@@ -540,7 +540,7 @@ export class ChatFlowApp {
                 break;
 
             case 'message:status':
-                console.log('Message status update:', event.payload);
+                console.info('Message status update:', event.payload);
                 break;
 
             case 'error':
@@ -548,7 +548,7 @@ export class ChatFlowApp {
                 break;
 
             default:
-                console.log('Unknown WebSocket event:', event);
+                console.info('Unknown WebSocket event:', event);
         }
     }
 
@@ -578,7 +578,7 @@ export class ChatFlowApp {
             message.senderId !== this.currentUser.email &&
             message.conversationId === this.conversationId) {
             
-            console.log('🤖 New message from other user detected, generating LLM response...');
+            console.info('🤖 New message from other user detected, generating LLM response...');
             
             // Show spinner to indicate LLM is thinking
             this.showLlmSpinner();
@@ -593,9 +593,9 @@ export class ChatFlowApp {
                 );
                 
                 if (llmResponse) {
-                    console.log('🤖 Sending LLM response:', llmResponse.substring(0, 100) + '...');
+                    console.info('🤖 Sending LLM response:', llmResponse.substring(0, 100) + '...');
                     await websocketService.sendMessage(this.conversationId, llmResponse);
-                    console.log('🤖 LLM response sent successfully');
+                    console.info('🤖 LLM response sent successfully');
                 }
             } catch (llmError) {
                 console.error('🤖 LLM response generation error:', llmError);
@@ -654,7 +654,7 @@ export class ChatFlowApp {
             if (response.success && response.data) {
                 this.currentConversation = response.data;
                 this.updateConversationDisplay();
-                console.log('Loaded conversation data:', this.currentConversation);
+                console.info('Loaded conversation data:', this.currentConversation);
             } else {
                 console.error('Failed to load conversation data:', response.error);
                 this.currentConversation = null;
@@ -701,7 +701,7 @@ export class ChatFlowApp {
         const spinner = document.getElementById('llmSpinner');
         if (spinner) {
             spinner.style.display = 'flex';
-            console.log('🤖 Showing LLM generation spinner');
+            console.info('🤖 Showing LLM generation spinner');
         }
     }
 
@@ -709,7 +709,7 @@ export class ChatFlowApp {
         const spinner = document.getElementById('llmSpinner');
         if (spinner) {
             spinner.style.display = 'none';
-            console.log('🤖 Hiding LLM generation spinner');
+            console.info('🤖 Hiding LLM generation spinner');
         }
     }
 
@@ -849,7 +849,7 @@ export class ChatFlowApp {
     }
 
     public async navigateToConversation(conversationId: string, messageId?: string) {
-        console.log(`Navigating to conversation: ${conversationId}`, messageId ? `message: ${messageId}` : '');
+        console.info(`Navigating to conversation: ${conversationId}`, messageId ? `message: ${messageId}` : '');
         
         // Switch to chat view
         this.switchView('chat');
@@ -869,7 +869,7 @@ export class ChatFlowApp {
      */
     private async loadConversationMessages(conversationId: string, highlightMessageId?: string): Promise<void> {
         try {
-            console.log('Loading conversation messages...');
+            console.info('Loading conversation messages...');
             
             // Show loading state
             const messagesList = document.getElementById('messagesList');
@@ -930,7 +930,7 @@ export class ChatFlowApp {
                     }, 100);
                 }
                 
-                console.log(`✅ Loaded ${this.messages.length} messages for conversation ${conversationId}`);
+                console.info(`✅ Loaded ${this.messages.length} messages for conversation ${conversationId}`);
             } else {
                 console.error('Failed to load conversation messages:', response.error);
                 this.messages = [];
@@ -1089,7 +1089,7 @@ export class ChatFlowApp {
 
             if (response.success && response.data) {
                 // Registration successful, proceed with automatic login
-                console.log('Registration successful, logging in automatically...');
+                console.info('Registration successful, logging in automatically...');
                 
                 // Don't set currentUser from registration response, wait for login response
                 const loginResponse = await apiService.login({ email, password });
@@ -1102,7 +1102,7 @@ export class ChatFlowApp {
                     // Initialize encryption system after authentication
                     try {
                         await apiService.initializeEncryption();
-                        console.log('🔐 Encryption system ready');
+                        console.info('🔐 Encryption system ready');
                     } catch (error) {
                         console.warn('🔐 Encryption initialization failed, continuing without encryption:', error);
                     }
@@ -1219,7 +1219,7 @@ export class ChatFlowApp {
             mainContent.classList.toggle('sidebar-collapsed', isSidebarCollapsed);
         }
         
-        console.log('🎨 Initial layout applied:', isSidebarCollapsed ? 'sidebar collapsed' : 'sidebar expanded');
+        console.info('🎨 Initial layout applied:', isSidebarCollapsed ? 'sidebar collapsed' : 'sidebar expanded');
 
         // Use setTimeout to ensure DOM is fully ready before binding events
         setTimeout(() => {

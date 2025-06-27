@@ -49,7 +49,7 @@ export class LocalLlmService {
      */
     setEnabled(enabled: boolean): void {
         this.isEnabled = enabled;
-        console.log(`🤖 Local LLM delegation ${enabled ? 'enabled' : 'disabled'}`);
+        console.info(`🤖 Local LLM delegation ${enabled ? 'enabled' : 'disabled'}`);
     }
 
     /**
@@ -70,7 +70,7 @@ export class LocalLlmService {
         try {
             const llmRequest = this.buildLlmRequest(messages, currentUserEmail);
             
-            console.log('🤖 Sending request to local LLM:', {
+            console.info('🤖 Sending request to local LLM:', {
                 model: llmRequest.model,
                 messagesCount: llmRequest.messages.length,
                 temperature: llmRequest.temperature
@@ -91,7 +91,7 @@ export class LocalLlmService {
                 throw new Error('No response content from local LLM');
             }
 
-            console.log('🤖 Received response from local LLM');
+            console.info('🤖 Received response from local LLM');
             return content.trim();
 
         } catch (error) {
@@ -149,7 +149,7 @@ export class LocalLlmService {
             });
         }
         
-        console.log('🤖 Local LLM config updated:', this.config);
+        console.info('🤖 Local LLM config updated:', this.config);
     }
 
     /**

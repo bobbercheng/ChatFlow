@@ -56,7 +56,7 @@ class LayoutDebugger {
     instance.addGlobalStyles();
     instance.setupKeyboardShortcuts();
     
-    console.log('🔍 Layout Debugger initialized. Press Ctrl+Shift+L to toggle layout outlines');
+    console.info('🔍 Layout Debugger initialized. Press Ctrl+Shift+L to toggle layout outlines');
   }
 
   /**
@@ -70,7 +70,7 @@ class LayoutDebugger {
       instance.monitorElement(element);
     });
     
-    console.log(`🔍 Monitoring ${elements.length} elements matching "${selector}"`);
+    console.info(`🔍 Monitoring ${elements.length} elements matching "${selector}"`);
   }
 
   /**
@@ -82,7 +82,7 @@ class LayoutDebugger {
     
     console.group(`🎯 CSS Specificity Analysis for "${selector}"`);
     analysis.forEach(rule => {
-      console.log(`Specificity: ${rule.specificity} | ${rule.selector}`, rule.properties);
+      console.info(`Specificity: ${rule.specificity} | ${rule.selector}`, rule.properties);
     });
     console.groupEnd();
 

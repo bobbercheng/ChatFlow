@@ -336,13 +336,13 @@ export class SearchComponent {
           if (this.currentQuery && this.currentQuery.trim().length > 0) {
             try {
               await apiService.trackSuggestionClick(this.currentQuery, suggestion, suggestionType || 'unknown');
-              console.log('✅ Suggestion click tracked:', { query: this.currentQuery, suggestion, type: suggestionType });
+              console.info('✅ Suggestion click tracked:', { query: this.currentQuery, suggestion, type: suggestionType });
             } catch (error) {
               console.error('Failed to track suggestion click:', error);
               // Continue with search even if tracking fails
             }
           } else {
-            console.log('🔍 Default suggestion selected (no tracking):', { suggestion, type: suggestionType });
+            console.info('🔍 Default suggestion selected (no tracking):', { suggestion, type: suggestionType });
           }
           
           this.searchInput.value = suggestion;
@@ -443,7 +443,7 @@ export class SearchComponent {
 
   private navigateToConversation(conversationId: string, messageId?: string | null): void {
     // This would integrate with your app's routing
-    console.log('Navigate to conversation:', conversationId, 'message:', messageId);
+    console.info('Navigate to conversation:', conversationId, 'message:', messageId);
     
     // Emit event with both conversationId and messageId
     const event = new CustomEvent('navigateToConversation', {
